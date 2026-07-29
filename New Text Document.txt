@@ -1,5 +1,0 @@
-Hi everyone. This is my first time joining this call, so I'm not sure if this topic has already been discussed.
-
-We have developed a web application that currently runs on a local system. It connects to the database, downloads the required file to the user's local machine, and then automatically uploads it to the application's UI for validation.
-
-I have a question regarding moving this solution to the cloud. Would it be possible to replicate the same workflow in a cloud-hosted application, or would you recommend a different approach for this use case?
