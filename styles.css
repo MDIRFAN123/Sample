@@ -874,6 +874,38 @@ section {
 
 }
 
+.masking-summary-list {
+
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+
+}
+
+.masking-summary-row {
+
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: #fff;
+  border-bottom: 1px solid var(--border);
+
+}
+
+.masking-summary-row:last-child {
+
+  border-bottom: 0;
+
+}
+
+.masking-summary-row code {
+
+  color: #334155;
+  overflow-wrap: anywhere;
+
+}
+
 .pii-highlight {
 
   outline: 3px solid rgba(220, 38, 38, .28);
