@@ -1,0 +1,15 @@
+@template: Generic Workbook Validation
+@worksheet_type: Generic Workbook
+@categories: Structure Validation | Required Fields | Formula Validation | Business Rules | Cross-sheet Checks
+
+# Generic Worksheet Validation
+
+Validate worksheet "{sheet_name}" using general workbook validation controls.
+
+- Review worksheet structure, headers, ranges, and data organization.
+- Identify missing, duplicate, malformed, or contradictory required values.
+- Validate formulas, references, data types, dates, and number formats.
+- Check internal consistency and evident worksheet business rules.
+- Compare shared identifiers and totals with related worksheets where applicable.
+
+Report every issue with its row or cell reference, severity, evidence, and recommended remediation.
