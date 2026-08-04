@@ -1,8 +1,0 @@
-# Worksheet Validation Prompt
-
-Worksheet: {sheet_name}
-Detected worksheet type: {worksheet_type}
-
-## Validation Rules
-
-{validation_rules}
