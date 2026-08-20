@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Workbook Automation Tool</title>
+
+    <!-- Bootstrap -->
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Bootstrap Icons -->
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+    <!-- Google Font -->
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Application CSS -->
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+
+</head>
+
+<body>
+
+    <aside class="flow-sidebar">
+        <div class="flow-brand"><i class="bi bi-journal-check"></i><span>Workbook Validation</span></div>
+        <nav><button class="flow-nav active" data-go-home><i class="bi bi-house"></i> Home</button>
+            <a class="flow-nav" href="mailto:support@example.com"><i class="bi bi-question-circle"></i> Help &amp; Support</a></nav>
+    </aside>
+
+    <main id="entryFlow" class="flow-screen">
+        <section id="teamStep" class="flow-card">
+            <p class="flow-eyebrow">Workbook Validation Tool</p>
+            <h1>Select your team</h1>
+            <p class="text-muted">Choose a workspace to begin validation.</p>
+            <div class="team-grid">
+                <button class="team-card" data-team="COPS"><i class="bi bi-shield-check"></i><strong>COPS</strong></button>
+                <button class="team-card" data-team="MQA"><i class="bi bi-clipboard-check"></i><strong>MQA</strong></button>
+                <button class="team-card" data-team="Channel Marketing"><i class="bi bi-megaphone"></i><strong>Channel Marketing</strong></button>
+            </div>
+        </section>
+        <section id="projectStep" class="flow-card d-none">
+            <button id="backToTeamsBtn" class="btn btn-link px-0 mb-3"><i class="bi bi-arrow-left"></i> Change team</button>
+            <p id="selectedTeamLabel" class="flow-eyebrow"></p><h1>Project details</h1>
+            <div class="row g-3 mt-2">
+                <div id="flowProjectColumn" class="col-md-6"><label class="form-label" for="flowProjectRef">Project Reference Number</label><input id="flowProjectRef" class="form-control" autocomplete="off"></div>
+                <div id="flowTaskColumn" class="col-md-6"><label class="form-label" for="flowTaskNumber">Task Number</label><input id="flowTaskNumber" class="form-control" autocomplete="off"></div>
+            </div>
+            <div id="flowError" class="alert alert-danger d-none mt-3"></div>
+            <button id="continueProjectBtn" class="btn btn-warning mt-4 px-4">Search / Continue <i class="bi bi-arrow-right ms-1"></i></button>
+        </section>
+    </main>
+
+    <main id="copsWorkspace" class="cops-workspace d-none">
+        <header class="cops-header"><div><p class="flow-eyebrow mb-1">COPS validation</p><h2 class="mb-0">Validation workspace</h2><small id="copsContext" class="text-muted"></small></div><button class="btn btn-sm btn-outline-secondary" data-change-project>Change Project</button></header>
+        <div class="cops-columns">
+            <section class="card cops-data-card"><div class="card-header"><h3>Validation Content</h3><small>Workbook, DSR, and required checks</small></div><div class="card-body">
+                <div class="cops-item"><span class="cops-check"><i class="bi bi-check-lg"></i></span><div><strong>DSR Content</strong><p id="copsDsrMessage">Waiting for generation</p></div><span id="copsDsrStatus" class="badge bg-secondary">Waiting</span><div class="d-flex gap-1"><button id="previewDsrBtn" class="btn btn-sm btn-outline-primary d-none" disabled>Preview</button></div></div>
+                <div id="copsWorkbookItem" class="cops-workbook-card cops-workbook-item workbook-pending">
+                    <div class="cops-workbook-header"><strong>Workbook Content</strong><div class="d-flex gap-2 flex-wrap"><a id="copsTaskLink" href="https://workfront.adobe.com/" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary d-none">Open Workbook Task</a><button id="replaceCopsWorkbookBtn" class="btn btn-sm btn-outline-secondary">Upload Workbook</button></div></div>
+                    <div class="cops-workbook-state"><span id="copsWorkbookStateIcon" class="cops-check"><i class="bi bi-check-lg"></i></span><div class="cops-workbook-copy"><strong id="copsWorkbookMessage">Waiting for retrieval</strong><span id="copsWorkbookFilename" class="cops-workbook-filename d-none"></span></div><span id="copsWorkbookStatus" class="badge bg-secondary">Pending</span></div>
+                    <div class="cops-workbook-actions"><button id="previewCompleteWorkbookBtn" class="btn btn-sm btn-primary d-none" disabled>Preview Complete Workbook</button></div>
+                    <div id="copsFallback" class="alert alert-warning d-none"><p id="copsFallbackMessage"><strong>Manual workbook upload required.</strong><br>Open the workbook task, download the latest Excel file, then select Upload Workbook.</p><div id="copsWorkbookDropZone" class="cops-workbook-drop d-none" role="button" tabindex="0"><div id="copsUploadSpinner" class="spinner-border spinner-border-sm text-primary d-none" aria-hidden="true"></div><i id="copsUploadIcon" class="bi bi-file-earmark-arrow-up"></i><strong id="copsUploadTitle">Drag &amp; Drop Workbook Here</strong><span id="copsUploadOr">or</span><button id="browseCopsWorkbookBtn" class="btn btn-sm btn-primary" type="button">Browse Workbook</button><small id="copsUploadHint">.xls, .xlsx, or .xlsm</small><div id="copsUploadFilename" class="cops-upload-filename d-none"></div></div><input id="copsWorkbookUpload" class="d-none" type="file" accept=".xls,.xlsx,.xlsm"></div>
+                </div>
+                <div class="cops-item"><span class="cops-check ready"><i class="bi bi-check-lg"></i></span><div><strong>Sheet Instructions</strong><p>Complete workbook validation<br>No sheet selection required</p></div><span class="badge bg-success">Ready</span><button id="openCopsInstructionsBtn" class="btn btn-sm btn-outline-primary">View</button></div>
+                <div class="cops-mask-progress" id="copsMaskProgress">Workbook ○ → DSR ○ → Detection ○ → Masking ○ → Validation ○</div>
+                <div class="cops-item"><span class="cops-check"><i class="bi bi-shield-check"></i></span><div><strong>Data Safety</strong><p id="copsSafetyMessage">DSR Report + Workbook Content &mdash; waiting</p></div><span id="copsSafetyStatus" class="badge bg-secondary">Waiting</span><div class="d-flex gap-1"><button id="viewCopsSafetyBtn" class="btn btn-sm btn-outline-primary d-none">View Data Safety Details</button><button id="previewCopsMaskedBtn" class="btn btn-sm btn-outline-primary d-none">Preview Masked Data</button><button id="retryCopsSafetyBtn" class="btn btn-sm btn-outline-secondary d-none"><i class="bi bi-arrow-clockwise"></i> Retry</button></div></div><div id="copsMaskedData" class="cops-masked-data d-none"><div class="cops-masked-title"><i class="bi bi-shield-lock"></i><strong>Data Safety Details</strong></div><div id="copsMaskedDataList"></div></div>
+                <button id="downloadCopsMaskedBtn" class="btn btn-primary w-100 mt-3 d-none"><i class="bi bi-download me-1"></i> <span id="downloadCopsMaskedLabel">Download Masked Files</span></button><div id="copsDownloadFeedback" class="cops-download-feedback d-none" role="status" aria-live="polite"></div>
+            </div></section>
+            <section class="card cops-gpt-card"><div class="card-header"><div class="cops-step-header"><div class="cops-steps"><button id="copsStepOne" class="active">Step 1 &mdash; Workbook / DSR Processing</button><span class="cops-step-connector"></span><button id="copsStepTwo">Step 2 &mdash; Rovo Chatbot</button></div><div class="d-flex align-items-center gap-2"><button id="refreshCopsChat" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-clockwise"></i> Refresh</button><span id="copsRefreshState" class="small text-muted" role="status">Ready</span></div></div></div><div class="card-body">
+                <div id="copsStepOneContent"><div id="copsStepOneCta" class="cops-step-cta disabled" aria-disabled="true">Complete masking and download the protected files to continue.</div><div class="cops-processing-summary"><h4>COPS Processing</h4><p>Prepare the workbook and DSR, complete masking, review Data Safety, then continue to Rovo.</p></div></div>
+                <div id="copsRovoContent" class="d-none"><div class="cops-step-two-header"><span>Rovo Agent</span><button id="copsBackChatBtn" class="btn btn-link btn-sm"><i class="bi bi-arrow-left"></i> Back to Step 1</button></div><div class="cops-agent-details"><span class="cops-agent-icon"><i class="bi bi-stars"></i></span><div><strong>Agent Details</strong><p>Atlassian Rovo Agent · Uses the processed and masked COPS files</p></div><span id="copsAgentStatus" class="badge bg-secondary">Waiting</span></div><a id="continueToRovoBtn" class="btn btn-primary disabled" href="https://irfannmd11.atlassian.net/" target="_blank" rel="noopener">Continue to Rovo →</a></div>
+            </div></section>
+        </div>
+    </main>
+
+    <div class="modal fade" id="copsMaskedPreviewModal" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><div><h4 class="modal-title">Masked Data Preview</h4><small class="text-muted">Sanitized, read-only preview</small></div><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div id="copsMaskedPreviewTabs" class="d-flex gap-2 flex-wrap mb-3"></div><div id="copsMaskedPreviewCategory" class="small text-muted mb-2"></div><div id="copsMaskedPreviewGrid" class="table-responsive"></div></div></div></div></div>
+    <div class="modal fade" id="copsWorkbookPreviewModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><div><h4 class="modal-title">Complete Workbook Preview</h4><small id="copsPreviewName" class="text-muted"></small></div><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div id="copsPreviewTabs" class="d-flex gap-2 flex-wrap mb-3"></div><div id="copsPreviewGrid" class="table-responsive"></div></div></div></div>
+    </div>
+    <div class="modal fade" id="copsTextModal" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><div><h4 id="copsTextModalTitle" class="modal-title"></h4><small id="copsTextModalTeam" class="text-muted"></small></div><button class="btn-close" data-bs-dismiss="modal"></button></div><div id="copsTextModalBody" class="modal-body"></div></div></div></div>
+    <div id="copsLoadingOverlay" class="loading-overlay d-none" role="status" aria-live="polite" aria-modal="true"><div class="loading-content"><div id="copsLoadingSpinner" class="spinner-border text-primary" style="width:4rem;height:4rem"></div><h5 id="copsLoadingTitle" class="mt-4">Fetching Workbook&hellip;</h5><p id="copsLoadingMessage" class="text-muted">Please wait while we download the latest workbook and load it into the UI.</p><button id="copsRetryBtn" class="btn btn-warning mt-3 d-none">Retry</button></div></div>
+
+    <div id="legacyWorkspace" class="app-wrapper d-none">
+
+        <!-- =========================================================
+HEADER
+========================================================= -->
+
+        <header class="tool-header shadow-sm">
+
+            <div class="container-fluid">
+
+                <div class="row align-items-center gy-2">
+
+                    <!-- ====================================== -->
+                    <!-- Branding -->
+                    <!-- ====================================== -->
+
+                    <div class="col-xl-3 col-lg-3">
+
+                        <div class="tool-brand">
+
+                            <h3 class="mb-0">
+
+                                <i class="bi bi-journal-code me-2 text-primary"></i>
+
+                                Workbook Automation Tool
+
+                            </h3>
+
+                            <small class="text-muted">
+
+                                AI Assisted Workbook Validation
+
+                            </small>
+
+                        </div>
+
+                    </div>
+
+                    <!-- ====================================== -->
+                    <!-- Project Inputs -->
+                    <!-- ====================================== -->
+
+                    <div class="col-xl-7 col-lg-7">
+
+                        <div class="row g-2 align-items-end">
+
+                            <div class="col-md-4">
+
+                                <label class="form-label">
+
+                                    Project Reference #
+
+                                </label>
+
+                                <input id="projectRef" type="text" class="form-control"
+                                    placeholder="Enter Project Reference">
+
+                            </div>
+
+                            <div class="col-md-3">
+
+                                <label class="form-label">
+
+                                    Task Number
+
+                                </label>
+
+                                <input id="taskNumber" type="text" class="form-control" placeholder="Enter Task Number">
+
+                            </div>
+
+                            <div class="col-md-5 d-flex align-items-center gap-2">
+
+                                <button id="fetchWorkbookBtn" class="btn btn-warning flex-grow-1">
+
+                                    <i class="bi bi-cloud-download me-2"></i>
+
+                                    Fetch Workbook
+
+                                </button>
+
+                                <button id="resetWorkspaceBtn" class="btn btn-outline-secondary" type="button">
+                                    <i class="bi bi-arrow-counterclockwise me-1"></i>
+                                    Reset Workspace
+                                </button>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    <!-- ====================================== -->
+                    <!-- Version -->
+                    <!-- ====================================== -->
+
+                    <div class="col-xl-2 col-lg-2 text-end">
+
+                        <small class="version-badge text-muted">Version 2.0</small>
+                        <button class="btn btn-sm btn-outline-secondary ms-2" data-change-project>Change Project</button>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </header>
+
+        <section id="manualDownloadPanel" class="container-fluid mt-2 d-none">
+            <div class="manual-download-panel" role="alert">
+                <div>
+                    <strong id="downloadPanelTitle">Manual download required</strong>
+                    <p id="manualDownloadMessage" class="mb-0">
+                        Workbook download link not found. Please download the workbook manually using the task link below.
+                    </p>
+                    <div id="downloadMonitorStatus" class="download-monitor-status mt-2" role="status"
+                        aria-live="polite">Waiting for workbook download...</div>
+                    <small id="expectedWorkbookName" class="manual-expected-name d-none"></small>
+                </div>
+                <div class="manual-download-actions">
+                    <a id="openTaskBtn" class="btn btn-outline-primary btn-sm" href="#" target="_blank"
+                        rel="noopener noreferrer">
+                        <i class="bi bi-box-arrow-up-right me-1"></i>Open Task
+                    </a>
+                    <button id="cancelMonitorBtn" class="btn btn-outline-secondary btn-sm" type="button">
+                        Cancel Monitoring
+                    </button>
+                    <label id="manualUploadLabel" class="btn btn-outline-primary btn-sm mb-0 d-none"
+                        for="manualWorkbookInput">
+                        <i class="bi bi-upload me-1"></i>Select Downloaded Workbook
+                    </label>
+                    <input id="manualWorkbookInput" class="d-none" type="file"
+                        accept=".xlsx,.xlsm,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+                </div>
+            </div>
+        </section>
+
+        <!-- ==========================================================
+KPI STRIP
+=========================================================== -->
+
+        <section id="workbookDetailsStrip" class="container-fluid mt-2 kpi-strip d-none">
+
+            <div class="card kpi-card shadow-sm">
+
+                <div class="card-body">
+
+                    <div class="row align-items-center text-center">
+
+                        <!-- Sheets -->
+
+                        <div class="col">
+
+                            <i class="bi bi-files text-primary fs-3"></i>
+
+                            <div class="small text-muted mt-2">
+
+                                Sheets
+
+                            </div>
+
+                            <h5 id="sheetCount" class="mb-0">
+
+                                0
+
+                            </h5>
+
+                        </div>
+
+                        <div class="col-auto">
+
+                            <div class="vr"></div>
+
+                        </div>
+
+                        <!-- Workbook Type -->
+
+                        <div class="col">
+
+                            <i class="bi bi-journal-text text-primary fs-3"></i>
+
+                            <div class="small text-muted mt-2">
+
+                                Workbook Type
+
+                            </div>
+
+                            <h6 id="workbookType" class="mb-0">
+
+                                -
+
+                            </h6>
+
+                        </div>
+
+                        <div class="col-auto">
+
+                            <div class="vr"></div>
+
+                        </div>
+
+                        <!-- Workbook -->
+
+                        <div class="col-3">
+
+                            <i class="bi bi-file-earmark-excel-fill text-success fs-3"></i>
+
+                            <div class="small text-muted mt-2">
+
+                                Workbook
+
+                            </div>
+
+                            <div id="workbookName" class="fw-semibold text-truncate">
+
+                                Not Loaded
+
+                            </div>
+
+                        </div>
+
+                        <div class="col-auto">
+
+                            <div class="vr"></div>
+
+                        </div>
+
+                        <!-- Source -->
+
+                        <div class="col">
+
+                            <i class="bi bi-cloud-check text-primary fs-3"></i>
+
+                            <div class="small text-muted mt-2">
+
+                                Source
+
+                            </div>
+
+                            <span id="workbookSource" class="badge bg-secondary">
+
+                                -
+
+                            </span>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+        <!-- ==========================================================
+MAIN WORKSPACE
+=========================================================== -->
+
+        <section class="container-fluid mt-3 main-workspace">
+
+            <div class="row gx-3 align-items-stretch">
+
+                <!-- ========================================= -->
+                <!-- LEFT PANEL -->
+                <!-- ========================================= -->
+
+                <div class="col-xl-6 col-lg-6">
+                    <!-- ==========================================================
+                     PROMPT BUILDER
+                    =========================================================== -->
+
+                    <div class="card prompt-builder-card shadow-sm">
+
+                        <!-- ============================================= -->
+                        <!-- Prompt Builder Header -->
+                        <!-- ============================================= -->
+
+                        <div class="card-header bg-white py-3">
+
+                            <div class="d-flex justify-content-between align-items-center flex-wrap">
+
+                                <!-- Left -->
+
+                                <div>
+
+                                    <div class="d-flex align-items-center">
+
+                                        <i class="bi bi-pencil-square text-primary fs-4 me-2"></i>
+
+                                        <h4 class="mb-0">
+
+                                            Prompt Builder
+
+                                        </h4>
+
+                                    </div>
+
+                                    <small class="text-muted">
+
+                                        Build, review and refine the AI prompt before sending it to GPT.
+
+                                    </small>
+
+                                </div>
+
+                                <!-- Right -->
+
+                                <div class="d-flex align-items-center gap-2">
+
+                                    <span id="promptBuilderActivity"
+                                        class="prompt-builder-activity text-secondary align-self-center"
+                                        role="status" aria-live="polite">
+                                        ⏳ Waiting for Workbook
+                                    </span>
+
+                                </div>
+
+                            </div>
+
+                            <div id="sheetSelectorGroup" class="active-sheet-row d-none">
+
+                                <span class="active-sheet-label">Worksheets</span>
+
+                                <div class="dropdown worksheet-multiselect">
+                                    <button id="worksheetDropdownButton"
+                                        class="btn btn-outline-primary btn-sm dropdown-toggle"
+                                        type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside"
+                                        aria-expanded="false">
+                                        Select worksheets
+                                    </button>
+                                    <div class="dropdown-menu worksheet-dropdown-menu p-2">
+                                        <div class="worksheet-dropdown-actions">
+                                            <button id="selectAllWorksheetsBtn" class="btn btn-link btn-sm"
+                                                type="button">Select All</button>
+                                            <button id="clearAllWorksheetsBtn" class="btn btn-link btn-sm"
+                                                type="button">Clear All</button>
+                                        </div>
+                                        <div id="worksheetCheckboxList" class="worksheet-checkbox-list"></div>
+                                    </div>
+                                </div>
+
+                                <select id="sheetSelector" class="d-none" multiple
+                                    aria-label="Selected worksheets"></select>
+
+                                <div id="worksheetSelectionMessage"
+                                    class="worksheet-selection-message text-danger d-none"
+                                    role="alert">
+                                    Select at least one worksheet.
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                        <!-- ============================================= -->
+                        <!-- Prompt Builder Body -->
+                        <!-- ============================================= -->
+
+                        <div class="card-body">
+
+                            <!-- ========================================= -->
+                            <!-- OFFER DESCRIPTION -->
+                            <!-- ========================================= -->
+
+                            <div class="card prompt-section mb-3">
+
+                                <div class="card-header bg-light">
+
+                                    <div class="d-flex justify-content-between align-items-center">
+
+                                        <div class="d-flex align-items-center">
+
+                                            <button
+                                                class="btn btn-link btn-sm text-decoration-none p-0 me-3 accordion-toggle"
+                                                data-bs-toggle="collapse" data-bs-target="#offerCollapse"
+                                                aria-expanded="false">
+
+                                                <i class="bi bi-chevron-right"></i>
+
+                                            </button>
+
+                                            <h6 class="mb-0">
+
+                                                📝 Workfront Content
+
+                                            </h6>
+
+                                        </div>
+
+                                        <div class="d-flex gap-2">
+
+                                            <span id="offerStatus" class="section-status text-secondary"
+                                                title="Waiting" aria-label="Waiting">
+
+                                                ⚪
+
+                                            </span>
+
+                                        </div>
+
+                                    </div>
+
+                                </div>
+
+                                <div id="offerCollapse" class="collapse">
+
+                                    <div class="card-body">
+
+                                        <div id="workfrontContentFields" class="workfront-content-fields"></div>
+                                        <textarea id="offerDescription" class="d-none" readonly></textarea>
+
+                                        <div class="d-flex justify-content-between mt-3">
+
+                                            <small class="text-muted">
+
+                                                Campaign metadata returned by Workfront.
+
+                                            </small>
+
+                                            <span class="badge bg-light text-dark">
+
+                                                Step 1 of 4
+
+                                            </span>
+
+                                        </div>
+
+                                    </div>
+
+                                </div>
+
+                            </div>
+                            <!-- ========================================================= -->
+                            <!-- WORKBOOK CONTEXT -->
+                            <!-- ========================================================= -->
+
+                            <div class="card prompt-section mb-3">
+
+                                <div class="card-header bg-light">
+
+                                    <div class="d-flex justify-content-between align-items-center">
+
+                                        <div class="d-flex align-items-center">
+
+                                            <button
+                                                class="btn btn-link btn-sm text-decoration-none p-0 me-3 accordion-toggle"
+                                                data-bs-toggle="collapse" data-bs-target="#workbookCollapse">
+
+                                                <i class="bi bi-chevron-right"></i>
+
+                                            </button>
+
+                                            <h6 class="mb-0">
+
+                                                📊 Workbook Content
+
+                                            </h6>
+
+                                        </div>
+
+                                        <div class="d-flex gap-2">
+
+                                            <span id="workbookStatus" class="section-status text-secondary"
+                                                title="Waiting" aria-label="Waiting">
+
+                                                ⚪
+
+                                            </span>
+
+                                            <button id="editWorkbookBtn" class="btn btn-outline-primary btn-sm">
+
+                                                <i class="bi bi-pencil"></i>
+
+                                                Edit
+
+                                            </button>
+
+                                        </div>
+
+                                    </div>
+
+                                </div>
+
+                                <div id="workbookCollapse" class="collapse">
+
+                                    <div class="card-body">
+
+                                        <div id="workbookContentList" class="workbook-content-list"
+                                            aria-live="polite"></div>
+                                        <textarea id="workbookContext" class="d-none" readonly></textarea>
+
+                                        <div class="d-flex justify-content-between mt-3">
+
+                                            <small class="text-muted">
+
+                                                Only selected worksheets are included in the temporary workbook.
+
+                                            </small>
+
+                                            <span class="badge bg-light text-dark">
+
+                                                Step 2 of 4
+
+                                            </span>
+
+                                        </div>
+
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+                            <!-- ========================================================= -->
+                            <!-- SHEET INSTRUCTIONS -->
+                            <!-- ========================================================= -->
+
+                            <div class="card prompt-section mb-3">
+
+                                <div class="card-header bg-light">
+
+                                    <div class="d-flex justify-content-between align-items-center">
+
+                                        <div class="d-flex align-items-center">
+
+                                            <button id="openSheetInstructionsBtn" type="button"
+                                                class="btn btn-link btn-sm text-decoration-none p-0 me-3 accordion-toggle"
+                                                data-bs-toggle="collapse" data-bs-target="#sheetInstructionsCollapse"
+                                                aria-expanded="false" aria-controls="sheetInstructionsCollapse"
+                                                aria-label="Expand sheet instructions summary">
+
+                                                <i class="bi bi-chevron-right"></i>
+
+                                            </button>
+
+                                            <h6 class="mb-0">
+
+                                                📄 Sheet Instructions
+
+                                            </h6>
+
+                                        </div>
+
+                                        <div id="sheetHeaderActions" class="d-flex gap-2 d-none">
+
+                                            <span id="sheetStatus" class="section-status text-secondary"
+                                                title="Waiting" aria-label="Waiting">
+
+                                                ⚪
+
+                                            </span>
+
+                                            <button id="editSheetBtn" class="btn btn-outline-primary btn-sm">
+
+                                                <i class="bi bi-pencil"></i>
+
+                                                Edit
+
+                                            </button>
+
+                                        </div>
+
+                                    </div>
+
+                                </div>
+
+                                <div id="sheetInstructionsCollapse" class="collapse">
+                                    <div id="sheetInstructionsDetails" class="card-body sheet-instruction-summary d-none">
+                                        <div class="sheet-instruction-meta">
+                                            <div><span>Validation Template</span><strong id="sheetTemplateName">-</strong></div>
+                                            <div><span>Worksheet Type</span><strong id="sheetWorksheetType">-</strong></div>
+                                            <div><span>Status</span><strong class="text-success">✓ Ready</strong></div>
+                                        </div>
+                                        <div class="mt-3">
+                                            <span class="text-muted small text-uppercase fw-semibold">Validation Includes</span>
+                                            <ul id="sheetInstructionSummary" class="mb-0 mt-2"></ul>
+                                        </div>
+                                        <button id="viewFullSheetInstructionsBtn" type="button"
+                                            class="btn btn-link btn-sm p-0 mt-3">
+                                            View Full Instructions
+                                        </button>
+                                    </div>
+                                </div>
+
+                            </div>
+
+                            <!-- ========================================================= -->
+                            <!-- PROMPT SAFETY -->
+                            <!-- ========================================================= -->
+
+                            <div class="card prompt-section prompt-safety-card mb-3">
+
+                                <div class="card-header bg-light">
+
+                                    <div class="d-flex justify-content-between align-items-center">
+
+                                        <div class="d-flex align-items-center">
+
+                                            <button
+                                                class="btn btn-link btn-sm text-decoration-none p-0 me-3 accordion-toggle"
+                                                data-bs-toggle="collapse" data-bs-target="#safetyCollapse"
+                                                aria-expanded="true">
+
+                                                <i class="bi bi-chevron-down"></i>
+
+                                            </button>
+
+                                            <button type="button" class="prompt-safety-info"
+                                                data-bs-toggle="popover" data-bs-trigger="hover focus click"
+                                                data-bs-placement="top"
+                                                data-bs-content="This tool automatically masks Credit Card and SSN values only. Please review the final prompt for any additional PII before sending it to GPT."
+                                                aria-label="Prompt Safety information">
+                                                <i class="bi bi-info-circle"></i>
+                                            </button>
+
+                                            <h6 class="mb-0">
+
+                                                🛡 Prompt Safety
+
+                                            </h6>
+
+                                        </div>
+
+                                    </div>
+
+                                </div>
+
+                                <div id="safetyCollapse" class="collapse show">
+
+                                    <div class="card-body">
+
+                                        <div class="prompt-safety-compact">
+                                            <div class="prompt-safety-row">
+                                                <i id="promptSafetyIcon" class="bi bi-hourglass"></i>
+                                                <span id="promptSafetyMessage">Waiting for workbook. Upload a workbook to perform PII detection.</span>
+                                            </div>
+                                        </div>
+
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+                            <!-- ========================================================= -->
+                            <!-- GENERATED PROMPT -->
+                            <!-- ========================================================= -->
+
+                            <div class="card generated-prompt-card border-primary shadow-sm">
+
+                                <div class="card-header bg-primary text-white">
+
+                                    <div class="d-flex justify-content-between align-items-center">
+
+                                        <div>
+
+                                            <h5 class="mb-0">
+
+                                                🤖 Generated Prompt
+
+                                            </h5>
+
+                                        </div>
+
+                                        <span id="generatedPromptStatus" class="compact-status text-warning">
+
+                                            🟡 Waiting
+
+                                        </span>
+
+                                    </div>
+
+                                </div>
+
+                                <div class="card-body">
+
+                                    <div id="promptAttachments" class="prompt-attachments d-none"
+                                        aria-label="Generated prompt and selected workbook attachments">
+                                        <div class="attachments-heading">
+                                            <span><i class="bi bi-paperclip me-1"></i>Attachments</span>
+                                            <small>Generated files</small>
+                                        </div>
+
+                                        <div class="prompt-attachment-grid">
+                                            <div class="prompt-attachment-card prompt-file-card">
+                                                <i class="bi bi-file-earmark-text-fill attachment-file-icon"></i>
+                                                <div class="attachment-file-details">
+                                                    <strong>Generated Prompt.txt</strong>
+                                                    <span id="generatedPromptFileSize"></span>
+                                                </div>
+                                                <div class="attachment-actions">
+                                                    <button id="previewPromptAttachmentBtn"
+                                                        class="btn btn-outline-primary btn-sm" type="button">
+                                                        <i class="bi bi-eye me-1"></i>Preview Generated Prompt
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <div class="prompt-attachment-card workbook-file-card">
+                                                <i class="bi bi-file-earmark-excel-fill attachment-file-icon"></i>
+                                                <div class="attachment-file-details">
+                                                    <strong id="temporaryWorkbookName"></strong>
+                                                    <span id="temporaryWorkbookSheets"></span>
+                                                    <small id="temporaryWorkbookSize"></small>
+                                                </div>
+                                                <div class="attachment-actions">
+                                                    <button id="previewWorkbookAttachmentBtn"
+                                                        class="btn btn-outline-primary btn-sm" type="button">
+                                                        <i class="bi bi-eye me-1"></i>Preview
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="generated-prompt-guidance">
+                                        Copy the Final Prompt and paste it into the GPT Workspace to validate the
+                                        selected worksheet(s).
+                                    </div>
+
+                                    <!-- Hidden textarea required by JS -->
+
+                                    <textarea id="finalPrompt" class="form-control d-none" readonly>
+
+        </textarea>
+
+                                </div>
+
+                                <div class="card-footer bg-white d-none">
+
+                                    <div class="prompt-action-bar btn-group" role="group"
+                                        aria-label="Generated prompt actions">
+
+                                        <button id="copyPromptBtn" class="btn btn-outline-primary btn-sm">
+
+                                            <i class="bi bi-clipboard me-1"></i>
+
+                                            Copy Final Prompt
+
+                                        </button>
+
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+                    <!-- ========================================================= -->
+                    <!-- RIGHT PANEL -->
+                    <!-- GPT WORKSPACE -->
+                    <!-- ========================================================= -->
+
+                    <div class="col-xl-6 col-lg-6">
+                        <!-- ==========================================================
+GPT WORKSPACE
+=========================================================== -->
+
+                        <div class="card gpt-workspace-card shadow-sm">
+
+                            <!-- ============================================= -->
+                            <!-- GPT Header -->
+                            <!-- ============================================= -->
+
+                            <div class="card-header bg-white py-3">
+
+                                <div class="d-flex justify-content-between align-items-center">
+
+                                    <div>
+
+                                        <div class="d-flex align-items-center">
+
+                                            <i class="bi bi-robot text-primary fs-4 me-2"></i>
+
+                                            <h4 class="mb-0">
+
+                                                GPT Workspace
+
+                                            </h4>
+
+                                        </div>
+
+                                        <small class="text-muted">
+
+                                            AI Prompt Execution Workspace
+
+                                        </small>
+
+                                    </div>
+
+                                    <div class="d-flex align-items-center gap-2 d-none">
+
+                                        <span class="badge bg-success">
+
+                                            ● Connected
+
+                                        </span>
+
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+                            <!-- ============================================= -->
+                            <!-- IFRAME -->
+                            <!-- ============================================= -->
+
+                            <div class="flex-grow-1">
+
+                                <div id="gptWorkspaceEmpty" class="gpt-empty-state">
+                                    <div class="gpt-empty-icon">
+                                        <i class="bi bi-stars"></i>
+                                    </div>
+                                    <h5>GPT Workspace</h5>
+                                    <p>Paste the copied Final Prompt here to begin workbook validation.</p>
+                                </div>
+
+                                <iframe id="gptIframe" class="d-none" src="about:blank" loading="lazy"
+                                    title="GPT Workspace"
+                                    style="
+
+                width:100%;
+                height:calc(100vh - 240px);
+                border:none;
+                background:#fff;
+
+            ">
+
+                                </iframe>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+        </section>
+
+        <!-- ==========================================================
+PREVIEW PROMPT MODAL
+=========================================================== -->
+
+        <div class="modal fade" id="sheetPreviewModal" tabindex="-1" aria-hidden="true"
+            aria-labelledby="sheetPreviewTitle">
+            <div class="modal-dialog modal-fullscreen-xl-down modal-xl">
+                <div class="modal-content sheet-preview-modal-content">
+                    <div class="modal-header">
+                        <div>
+                            <h4 id="sheetPreviewTitle" class="modal-title">
+                                <i class="bi bi-file-earmark-spreadsheet me-2"></i>
+                                Workbook Preview
+                            </h4>
+                            <small id="sheetPreviewWorkbookName" class="text-muted"></small>
+                        </div>
+                        <button class="btn-close" data-bs-dismiss="modal" aria-label="Close preview"></button>
+                    </div>
+                    <div class="modal-body sheet-preview-modal-body">
+                        <div id="sheetPreviewNotice" class="alert alert-warning py-2 d-none"></div>
+                        <div id="sheetPreviewGrid" class="sheet-preview-grid" tabindex="0"
+                            aria-label="Read-only worksheet preview"></div>
+                    </div>
+                    <div class="modal-footer sheet-preview-footer">
+                        <div id="sheetPreviewTabs" class="sheet-preview-tabs" role="tablist"
+                            aria-label="Workbook worksheets"></div>
+                        <button class="btn btn-secondary" data-bs-dismiss="modal">Close Preview</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="sheetInstructionsModal" tabindex="-1" aria-hidden="true"
+            data-bs-backdrop="true" data-bs-keyboard="true"
+            aria-labelledby="sheetInstructionsModalTitle">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content sheet-instructions-modal-content">
+                    <div class="modal-header">
+                        <div class="sheet-instructions-header-content">
+                            <h4 id="sheetInstructionsModalTitle" class="modal-title">
+                                <i class="bi bi-file-earmark-text me-2"></i>Full Sheet Instructions
+                            </h4>
+                            <div class="sheet-instructions-header-meta">
+                                <span>Sheet Name <strong id="sheetInstructionsModalSheetName">-</strong></span>
+                                <span>Template Name <strong id="sheetInstructionsModalTemplateName">-</strong></span>
+                            </div>
+                        </div>
+                        <button class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <textarea id="sheetPrompt" class="form-control sheet-instructions-editor" rows="28"
+                            readonly aria-label="Full sheet validation prompt"></textarea>
+                    </div>
+                    <div class="modal-footer">
+                        <button id="copySheetInstructionsBtn" class="btn btn-outline-primary">
+                            <i class="bi bi-clipboard me-1"></i>Copy Prompt
+                        </button>
+                        <button id="saveSheetInstructionsBtn" class="btn btn-primary" disabled>
+                            <i class="bi bi-check-lg me-1"></i>Save for Current Session
+                        </button>
+                        <button id="resetSheetInstructionsBtn" class="btn btn-outline-danger">
+                            <i class="bi bi-arrow-counterclockwise me-1"></i>Reset to Original
+                        </button>
+                        <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="promptPreviewModal" tabindex="-1" aria-hidden="true">
+
+            <div class="modal-dialog modal-xl modal-dialog-scrollable">
+
+                <div class="modal-content">
+
+                    <div class="modal-header">
+
+                        <h4 class="modal-title">
+
+                            <i class="bi bi-file-earmark-text me-2"></i>
+
+                            Final AI Prompt
+
+                        </h4>
+
+                        <button class="btn-close" data-bs-dismiss="modal"></button>
+
+                    </div>
+
+                    <div class="modal-body">
+
+                        <div class="alert alert-info">
+
+                            <i class="bi bi-info-circle-fill me-2"></i>
+
+                            Review the generated prompt before copying or sending it to GPT.
+
+                        </div>
+
+                        <textarea id="previewPrompt" class="form-control" rows="28" readonly
+                            style="height:calc(100vh - 260px) !important; min-height:520px;">
+
+                </textarea>
+
+                    </div>
+
+                    <div class="modal-footer">
+
+                        <button id="copyPreviewBtn" class="btn btn-outline-primary">
+
+                            <i class="bi bi-clipboard me-2"></i>
+
+                            Copy Prompt from Preview
+
+                        </button>
+
+                        <button class="btn btn-secondary" data-bs-dismiss="modal">
+
+                            Close
+
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="modal fade" id="copySafetyReminderModal" tabindex="-1"
+            aria-labelledby="copySafetyReminderTitle" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content copy-safety-reminder">
+                    <div class="modal-header">
+                        <h5 id="copySafetyReminderTitle" class="modal-title">
+                            <i class="bi bi-check-circle-fill text-success me-2"></i>
+                            Final Prompt copied successfully.
+                        </h5>
+                        <button class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p><strong>Important:</strong> This tool automatically masks Credit Card and SSN values only.</p>
+                        <p class="mb-0">Please review the copied prompt for any additional PII (e.g., customer names,
+                            account numbers, usernames, email addresses, phone numbers, addresses, etc.) before
+                            pasting it into the GPT Workspace.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-warning" type="button" data-bs-dismiss="modal">OK</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==========================================================
+TOAST
+=========================================================== -->
+
+        <div class="position-fixed bottom-0 end-0 p-3" style="z-index:1080;">
+
+            <div id="liveToast" class="toast align-items-center text-bg-success border-0" role="alert">
+
+                <div class="d-flex">
+
+                    <div class="toast-body">
+
+                        <i class="bi bi-check-circle-fill me-2"></i>
+
+                        Action completed successfully.
+
+                    </div>
+
+                    <button class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast">
+
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- ==========================================================
+LOADING OVERLAY
+=========================================================== -->
+
+        <div id="loadingOverlay" class="position-fixed top-0 start-0 w-100 h-100 d-none" style="
+
+        background:rgba(255,255,255,.85);
+        z-index:2000;
+
+    ">
+
+            <div class="h-100 d-flex justify-content-center align-items-center">
+
+                <div class="text-center">
+
+                    <div class="spinner-border text-primary" style="width:4rem;height:4rem;">
+
+                    </div>
+
+                    <h5 class="mt-4">
+
+                        Fetching Workbook... Please wait.
+
+                    </h5>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- ==========================================================
+FOOTER
+=========================================================== -->
+
+        <footer class="border-top mt-4 py-3">
+
+            <div class="container-fluid">
+
+                <div class="d-flex justify-content-between align-items-center flex-wrap">
+
+                    <small class="text-muted">
+
+                        © 2026 Workbook Automation Tool
+
+                    </small>
+
+                    <small class="text-muted">
+
+                        AI Assisted Workbook Validation
+
+                    </small>
+
+                </div>
+
+            </div>
+
+        </footer>
+
+        <!-- ==========================================================
+SCRIPTS
+=========================================================== -->
+
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+        <script src="{{ url_for('static', filename='app.js') }}"></script>
+        <script src="{{ url_for('static', filename='team-flow.js') }}"></script>
+
+</body>
+
+</html>
