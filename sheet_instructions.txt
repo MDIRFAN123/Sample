@@ -1,0 +1,3 @@
+COPS sheet instructions
+
+Validate every worksheet and the complete DSR report. Confirm required campaign data is present, consistent across sheets, and aligned with the DSR. Report missing values, conflicting values, broken formulas, malformed links, and unexpected personally identifiable or sensitive data. Do not limit validation to a selected snippet.

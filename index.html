@@ -1,0 +1,91 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Workbook Automation Tool</title>
+
+    <!-- Bootstrap -->
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Bootstrap Icons -->
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+    <!-- Google Font -->
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Application CSS -->
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+
+</head>
+
+<body data-team-app="{{ team_app }}" data-enterprise-mode="{{ enterprise_mode|lower }}" data-auto-download-enabled="{{ auto_download_enabled|lower }}" data-auto-upload-enabled="{{ auto_upload_enabled|lower }}">
+
+    <aside class="flow-sidebar">
+        <div class="flow-brand"><i class="bi bi-journal-check"></i><span>Workbook Validation</span></div>
+        <nav><button class="flow-nav active" data-go-home><i class="bi bi-house"></i> Home</button>
+            <a class="flow-nav" href="mailto:support@example.com"><i class="bi bi-question-circle"></i> Help &amp; Support</a></nav>
+    </aside>
+
+    <main id="entryFlow" class="flow-screen">
+        <section id="projectStep" class="flow-card">
+            <p id="selectedTeamLabel" class="flow-eyebrow">{{ team_app }}</p><h1>Project details</h1>
+            <div class="row g-3 mt-2">
+                <div id="flowProjectColumn" class="col-md-6"><label class="form-label" for="flowProjectRef">Project Reference Number</label><input id="flowProjectRef" class="form-control" autocomplete="off"></div>
+                <div id="flowTaskColumn" class="col-md-6"><label class="form-label" for="flowTaskNumber">Task Number</label><input id="flowTaskNumber" class="form-control" autocomplete="off"></div>
+            </div>
+            <div id="flowError" class="alert alert-danger d-none mt-3"></div>
+            <button id="continueProjectBtn" class="btn btn-warning mt-4 px-4">Search / Continue <i class="bi bi-arrow-right ms-1"></i></button>
+        </section>
+    </main>
+
+    <main id="copsWorkspace" class="cops-workspace d-none">
+        <header class="cops-header"><div><p class="flow-eyebrow mb-1">COPS validation</p><h2 class="mb-0">Validation workspace</h2><small id="copsContext" class="text-muted"></small></div><button class="btn btn-sm btn-outline-secondary" data-change-project>Change Project</button></header>
+        <div class="cops-columns">
+            <section class="card cops-data-card"><div class="card-header"><h3>Downloaded Data</h3><small>Workbook, DSR, and required checks</small></div><div class="card-body">
+                <div class="cops-item"><span class="cops-check"><i class="bi bi-check-lg"></i></span><div><strong>DSR Content</strong><p id="copsDsrMessage">Waiting for generation</p></div><span id="copsDsrStatus" class="badge bg-secondary">Waiting</span><div class="d-flex gap-1"><button id="previewDsrBtn" class="btn btn-sm btn-outline-primary d-none" disabled>Preview</button></div></div>
+                <div id="copsWorkbookItem" class="cops-workbook-card cops-workbook-item workbook-pending">
+                    <div class="cops-workbook-header"><strong>Workbook Content</strong><div class="d-flex gap-2 flex-wrap"><a id="copsTaskLink" href="https://workfront.adobe.com/" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary d-none">Open Workbook Task</a><button id="replaceCopsWorkbookBtn" class="btn btn-sm btn-outline-secondary">Manual Upload/Replace Workbook</button></div></div>
+                    <div class="cops-workbook-state"><span id="copsWorkbookStateIcon" class="cops-check"><i class="bi bi-check-lg"></i></span><div class="cops-workbook-copy"><strong id="copsWorkbookMessage">Waiting for retrieval</strong><span id="copsWorkbookFilename" class="cops-workbook-filename d-none"></span></div><span id="copsWorkbookStatus" class="badge bg-secondary">Pending</span></div>
+                    <div class="cops-workbook-actions"><button id="previewCompleteWorkbookBtn" class="btn btn-sm btn-primary d-none" disabled>Preview Complete Workbook</button></div>
+                    <div id="copsFallback" class="alert alert-warning d-none"><p id="copsFallbackMessage"><strong>Manual workbook upload required.</strong><br>Open the workbook task, download the latest Excel file, then select Upload Workbook.</p><div id="copsWorkbookDropZone" class="cops-workbook-drop d-none" role="button" tabindex="0"><div id="copsUploadSpinner" class="spinner-border spinner-border-sm text-primary d-none" aria-hidden="true"></div><i id="copsUploadIcon" class="bi bi-file-earmark-arrow-up"></i><strong id="copsUploadTitle">Drag &amp; Drop Workbook Here</strong><span id="copsUploadOr">or</span><button id="browseCopsWorkbookBtn" class="btn btn-sm btn-primary" type="button">Browse Workbook</button><small id="copsUploadHint">.xls, .xlsx, or .xlsm</small><div id="copsUploadFilename" class="cops-upload-filename d-none"></div></div><input id="copsWorkbookUpload" class="d-none" type="file" accept=".xls,.xlsx,.xlsm"></div>
+                </div>
+                <div class="cops-item"><span class="cops-check ready"><i class="bi bi-check-lg"></i></span><div><strong>Sheet Instructions</strong><p>Complete workbook validation<br>No sheet selection required</p></div><span class="badge bg-success">Ready</span><button id="openCopsInstructionsBtn" class="btn btn-sm btn-outline-primary">View</button></div>
+                <div class="cops-mask-progress" id="copsMaskProgress">Workbook &#9675; &rarr; DSR &#9675; &rarr; Detection &#9675; &rarr; Masking &#9675; &rarr; Validation &#9675;</div>
+                <div class="cops-item"><span class="cops-check"><i class="bi bi-shield-check"></i></span><div><strong>Prompt Safety</strong><p id="copsSafetyMessage">DSR Report + Workbook Content &mdash; waiting</p></div><span id="copsSafetyStatus" class="badge bg-secondary">Waiting</span><div class="d-flex gap-1"><button id="viewCopsSafetyBtn" class="btn btn-sm btn-outline-primary d-none">View Data Safety Details</button><button id="previewCopsMaskedBtn" class="btn btn-sm btn-outline-primary d-none">Preview Masked Data</button><button id="retryCopsSafetyBtn" class="btn btn-sm btn-outline-secondary d-none"><i class="bi bi-arrow-clockwise"></i> Retry</button></div></div><div id="copsMaskedData" class="cops-masked-data d-none"><div class="cops-masked-title"><i class="bi bi-shield-lock"></i><strong>Data Safety Details</strong></div><div id="copsMaskedDataList"></div></div>
+                <button id="downloadCopsMaskedBtn" class="btn btn-primary w-100 mt-3 d-none"><i class="bi bi-download me-1"></i> <span id="downloadCopsMaskedLabel">Download Both Files</span></button><div id="copsDownloadFeedback" class="cops-download-feedback d-none" role="status" aria-live="polite"></div>
+            </div></section>
+            <section class="card cops-gpt-card"><div class="card-header"><div class="cops-step-header"><div class="cops-steps"><button id="copsStepOne" class="active">Step 1 &mdash; Rovo Chatbot</button><span class="cops-step-connector"></span><button id="copsStepTwo">Step 2 &mdash; GPT Chatbot</button></div><div class="d-flex align-items-center gap-2"><button id="refreshCopsChat" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-clockwise"></i> Refresh</button><span id="copsRefreshState" class="small text-muted" role="status">Ready</span></div></div></div><div class="card-body">
+                <div id="copsStepOneContent"><div id="copsStepOneCta" class="cops-step-cta disabled" aria-disabled="true">Complete masking to continue to Step 2.</div><div class="cops-processing-summary"><h4>COPS Processing</h4><p>Prepare the workbook and DSR, complete masking, review Data Safety, then continue to the AI chatbots.</p></div><div id="copsChatOne"><h3>Rovo Chatbot 1</h3><iframe title="Rovo Agent 1" src="{{ cops_rovo_url }}" loading="lazy"></iframe></div></div>
+                <div id="copsRovoContent" class="d-none"><div id="copsChatTwo"><div class="cops-step-two-header"><span>GPT Chatbot</span><button id="copsBackChatBtn" class="btn btn-link btn-sm"><i class="bi bi-arrow-left"></i> Back to Step 1</button></div><iframe title="GPT Chatbot" src="{{ cops_gpt_url }}" loading="lazy"></iframe></div></div>
+            </div></section>
+        </div>
+    </main>
+
+    <div class="modal fade" id="copsMaskedPreviewModal" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><div><h4 class="modal-title">Masked Data Preview</h4><small class="text-muted">Sanitized, read-only preview</small></div><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div id="copsMaskedPreviewTabs" class="d-flex gap-2 flex-wrap mb-3"></div><div id="copsMaskedPreviewCategory" class="small text-muted mb-2"></div><div id="copsMaskedPreviewGrid" class="table-responsive"></div></div></div></div></div>
+    <div class="modal fade" id="copsWorkbookPreviewModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><div><h4 class="modal-title">Complete Workbook Preview</h4><small id="copsPreviewName" class="text-muted"></small></div><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div id="copsPreviewTabs" class="d-flex gap-2 flex-wrap mb-3"></div><div id="copsPreviewGrid" class="table-responsive"></div></div></div></div>
+    </div>
+    <div class="modal fade" id="copsTextModal" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><div><h4 id="copsTextModalTitle" class="modal-title"></h4><small id="copsTextModalTeam" class="text-muted"></small></div><button class="btn-close" data-bs-dismiss="modal"></button></div><div id="copsTextModalBody" class="modal-body cops-document-preview"></div></div></div></div>
+    <div id="copsLoadingOverlay" class="loading-overlay d-none" role="status" aria-live="polite" aria-modal="true"><div class="loading-content"><div id="copsLoadingSpinner" class="spinner-border text-primary" style="width:4rem;height:4rem"></div><h5 id="copsLoadingTitle" class="mt-4">Fetching Workbook&hellip;</h5><p id="copsLoadingMessage" class="text-muted">Please wait while we download the latest workbook and load it into the UI.</p><button id="copsRetryBtn" class="btn btn-warning mt-3 d-none">Retry</button></div></div>
+
+
+        <!-- ==========================================================
+SCRIPTS
+=========================================================== -->
+
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+        <script src="{{ url_for('static', filename='team-flow.js') }}"></script>
+
+</body>
+
+</html>
