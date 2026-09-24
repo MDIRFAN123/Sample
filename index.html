@@ -1,12 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
+
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
 
     <title>ORB OOO Schedule</title>
 
     <style>
+
         * {
             box-sizing: border-box;
         }
@@ -14,270 +21,153 @@
         body {
             margin: 0;
             font-family: Arial, sans-serif;
-            background: #f4f7fa;
-            color: #12344d;
-        }
-
-        .header {
-            height: 55px;
-            background: white;
-            border-bottom: 1px solid #ddd;
-            display: flex;
-            align-items: center;
-            padding: 0 25px;
-        }
-
-        .logo {
-            font-size: 19px;
-            font-weight: bold;
-            color: #0066a1;
-        }
-
-        .logo span {
-            color: #00a4e4;
+            background: #f5f7f9;
+            color: #222;
         }
 
         .container {
             width: 420px;
-            max-width: 92%;
-            margin: 70px auto;
-            background: white;
-            padding: 25px;
-            border-radius: 8px;
-            box-shadow: 0 3px 12px rgba(0,0,0,.08);
+            margin: 80px auto;
         }
 
-        h2 {
-            margin: 0;
+        .title {
             font-size: 21px;
+            font-weight: 600;
+            color: #0072ce;
+            margin-bottom: 6px;
         }
 
         .subtitle {
-            margin-top: 6px;
-            font-size: 12px;
-            color: #71808b;
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 20px;
         }
 
-        .upload {
-            margin-top: 25px;
-            height: 150px;
-            border: 2px dashed #8bb8d0;
-            border-radius: 7px;
-            background: #f8fbfd;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
+        .upload-box {
+            background: white;
+            border: 2px dashed #0072ce;
+            border-radius: 10px;
+            padding: 28px 22px;
+            text-align: center;
             cursor: pointer;
         }
 
-        .upload:hover {
-            border-color: #0066a1;
-            background: #f2f9fc;
+        .upload-box:hover {
+            background: #f4faff;
         }
 
-        .icon {
-            font-size: 28px;
+        .upload-text {
+            font-size: 15px;
+            font-weight: 600;
+            color: #333;
             margin-bottom: 8px;
         }
 
-        .upload strong {
-            font-size: 14px;
-        }
-
-        .upload small {
-            margin-top: 5px;
-            color: #777;
-            font-size: 11px;
-        }
-
-        input {
-            display: none;
-        }
-
-        .file {
-            margin-top: 8px;
-            color: #0066a1;
-            font-size: 11px;
-            font-weight: bold;
-        }
-
-        .info {
-            margin-top: 12px;
-            padding: 9px;
-            background: #f5f8fa;
-            border-radius: 5px;
-            font-size: 11px;
-            color: #687580;
-        }
-
-        .loading {
-            display: none;
-            margin-top: 15px;
-            text-align: center;
-            color: #0066a1;
+        .upload-info {
             font-size: 12px;
-            font-weight: bold;
+            color: #777;
+            line-height: 1.5;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .file-name {
+            margin-top: 14px;
+            font-size: 12px;
+            color: #0072ce;
+            font-weight: 600;
         }
 
         .error {
-            margin-bottom: 15px;
-            padding: 10px;
-            background: #fff3f2;
-            border-left: 3px solid #d93025;
-            color: #a52218;
-            font-size: 12px;
-        }
-
-        .success {
-            margin-top: 20px;
-            padding: 10px;
-            background: #eef9f2;
-            border-left: 3px solid #2e8b57;
-            color: #246b43;
-            font-size: 12px;
-        }
-
-        .report {
-            margin-top: 12px;
+            margin-top: 18px;
             padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 12px;
+            background: #fff1f1;
+            border-left: 4px solid #d71920;
+            color: #b00000;
+            font-size: 13px;
         }
 
-        .download {
-            display: inline-block;
-            margin-top: 10px;
-            padding: 7px 12px;
-            background: #0066a1;
-            color: white;
-            text-decoration: none;
-            border-radius: 4px;
-            font-size: 11px;
+        .processing {
+            margin-top: 15px;
+            font-size: 13px;
+            color: #0072ce;
+            display: none;
         }
+
     </style>
+
 </head>
 
 <body>
 
-<div class="header">
-    <div class="logo">
-        ORB <span>OOO</span> Schedule
-    </div>
-</div>
-
-
 <div class="container">
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% for category, message in messages %}
-            <div class="error">
-                {{ message }}
-            </div>
-        {% endfor %}
-    {% endwith %}
+    <div class="title">
+        ORB OOO Schedule
+    </div>
+
+    <div class="subtitle">
+        Upload the OOO input file to automatically generate the weekly schedule.
+    </div>
 
 
-    {% if success %}
+    <form
+        id="uploadForm"
+        action="/upload"
+        method="POST"
+        enctype="multipart/form-data"
+    >
 
-        <h2>Report Generated</h2>
-
-        <div class="success">
-            ✓ OOO report generated successfully
-        </div>
-
-        {% for report in reports %}
-
-            <div class="report">
-
-                <strong>
-                    {{ report.monday.strftime('%m/%d/%Y') }}
-                    -
-                    {{ report.friday.strftime('%m/%d/%Y') }}
-                </strong>
-
-                <br>
-
-                OOO:
-                {% for record in report.records %}
-                    {{ record.employee }}{% if not loop.last %}, {% endif %}
-                {% endfor %}
-
-                <br>
-
-                <a
-                    class="download"
-                    href="{{ url_for('download', filename=report.filename) }}"
-                >
-                    Download Report
-                </a>
-
-            </div>
-
-        {% endfor %}
-
-    {% else %}
-
-        <h2>ORB OOO Schedule</h2>
-
-        <div class="subtitle">
-            Upload the OOO Excel file to generate the report
-        </div>
-
-
-        <form
-            id="uploadForm"
-            method="POST"
-            enctype="multipart/form-data"
+        <label
+            class="upload-box"
+            for="file"
         >
 
-            <label
-                class="upload"
-                for="file"
-            >
+            <div class="upload-text">
+                Upload Excel File
+            </div>
 
-                <div class="icon">📊</div>
-
-                <strong>
-                    Upload Excel
-                </strong>
-
-                <small>
-                    Date • Status • Employee Name
-                </small>
-
-                <div
-                    class="file"
-                    id="fileName"
-                ></div>
-
-            </label>
-
+            <div class="upload-info">
+                Input must contain only:
+                <br>
+                <b>Date</b> &nbsp; | &nbsp;
+                <b>Status</b> &nbsp; | &nbsp;
+                <b>Employee Name</b>
+                <br><br>
+                The report will be generated automatically.
+            </div>
 
             <input
                 type="file"
                 id="file"
-                name="ooo_file"
-                accept=".xlsx,.xlsm"
-                required
+                name="file"
+                accept=".xlsx,.xls"
             >
-
-
-            <div class="info">
-                Select the Excel file. The report will be
-                generated automatically.
-            </div>
-
 
             <div
-                class="loading"
-                id="loading"
-            >
-                Generating report...
-            </div>
+                id="fileName"
+                class="file-name"
+            ></div>
 
-        </form>
+        </label>
+
+        <div
+            id="processing"
+            class="processing"
+        >
+            Generating ORB schedule...
+        </div>
+
+    </form>
+
+
+    {% if error %}
+
+        <div class="error">
+            {{ error }}
+        </div>
 
     {% endif %}
 
@@ -286,33 +176,50 @@
 
 <script>
 
-const file = document.getElementById("file");
+    const fileInput =
+        document.getElementById("file");
 
-if (file) {
+    const form =
+        document.getElementById("uploadForm");
 
-    file.addEventListener("change", function () {
+    const fileName =
+        document.getElementById("fileName");
 
-        if (this.files.length > 0) {
+    const processing =
+        document.getElementById("processing");
 
-            document.getElementById("fileName").innerText =
-                this.files[0].name;
 
-            document.getElementById("loading").style.display =
-                "block";
+    fileInput.addEventListener(
+        "change",
+        function () {
 
-            setTimeout(function () {
+            if (
+                this.files &&
+                this.files.length > 0
+            ) {
 
-                document.getElementById("uploadForm").submit();
+                fileName.textContent =
+                    this.files[0].name;
 
-            }, 200);
+                processing.style.display =
+                    "block";
+
+                // Automatically submit
+                // after file selection
+
+                setTimeout(
+                    function () {
+                        form.submit();
+                    },
+                    300
+                );
+            }
 
         }
-
-    });
-
-}
+    );
 
 </script>
 
 </body>
+
 </html>
