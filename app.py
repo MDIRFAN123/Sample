@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, send_file
-from openpyxl import load_workbook, Workbook
+from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from datetime import datetime, date, timedelta
@@ -10,80 +10,113 @@ app = Flask(__name__)
 
 UPLOAD_FOLDER = "uploads"
 OUTPUT_FOLDER = "outputs"
-MASTER_FILE = "ORB_Employee_Master.xlsx"
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
 
 # ============================================================
+# EMPLOYEE MASTER - HARD CODED
+# ============================================================
+
+EMPLOYEE_CODES = {
+    "Velina": "VR",
+    "Cristen": "CR",
+    "Tracy": "TR",
+    "Shakima": "SL",
+    "Holly": "HB"
+}
+
+
+# ============================================================
 # HELPERS
 # ============================================================
 
-def normalize_text(value):
+def normalize_name(value):
     if value is None:
         return ""
 
-    return str(value).strip()
+    value = str(value).strip()
+
+    value = re.sub(r"\s+", " ", value)
+
+    return value.lower()
+
+
+def clean_name(value):
+    if value is None:
+        return ""
+
+    return re.sub(
+        r"\s+",
+        " ",
+        str(value).strip()
+    )
 
 
 def normalize_status(value):
-    """
-    Converts different OOO formats into a standard value.
-    """
-    text = normalize_text(value).lower()
 
-    text = text.replace("-", " ")
-    text = text.replace("_", " ")
-    text = re.sub(r"\s+", " ", text)
+    if value is None:
+        return ""
 
-    if text in [
+    value = str(value).strip().lower()
+
+    value = value.replace("-", " ")
+    value = value.replace("_", " ")
+
+    value = re.sub(
+        r"\s+",
+        " ",
+        value
+    )
+
+    if value in [
         "ooo",
         "out of office",
-        "outofoffice",
-        "out of the office",
-        "away"
+        "outof office",
+        "outoffice",
+        "out of the office"
     ]:
         return "OOO"
 
-    return text.upper()
+    return value.upper()
 
 
-def normalize_name(value):
-    """
-    Used to match employee names safely.
-    """
-    text = normalize_text(value).lower()
-    text = re.sub(r"\s+", " ", text)
-    return text
-
+# ============================================================
+# DATE PARSER
+# ============================================================
 
 def parse_date(value):
-    """
-    Handles Excel dates and common text date formats.
-    """
 
     if value is None:
         return None
 
+    # Python datetime
     if isinstance(value, datetime):
         return value.date()
 
+    # Python date
     if isinstance(value, date):
         return value
 
-    # Excel serial number
+    # Excel date / number
     if isinstance(value, (int, float)):
+
         try:
+
             from openpyxl.utils.datetime import from_excel
+
             result = from_excel(value)
+
             if isinstance(result, datetime):
                 return result.date()
+
             return result
+
         except Exception:
             pass
 
-    text = normalize_text(value)
+    text = str(value).strip()
 
     if not text:
         return None
@@ -96,280 +129,314 @@ def parse_date(value):
         "%Y-%m-%d",
         "%Y/%m/%d",
         "%d/%m/%Y",
-        "%d-%m-%Y",
-        "%m/%d",
+        "%d-%m-%Y"
     ]
 
     for fmt in formats:
+
         try:
-            parsed = datetime.strptime(text, fmt)
 
-            # If only month/day was supplied, use current year
-            if fmt == "%m/%d":
-                parsed = parsed.replace(year=datetime.now().year)
-
-            return parsed.date()
+            return datetime.strptime(
+                text,
+                fmt
+            ).date()
 
         except ValueError:
             continue
+
+    # Last attempt
+    try:
+
+        parsed = datetime.fromisoformat(
+            text
+        )
+
+        return parsed.date()
+
+    except Exception:
+        pass
 
     return None
 
 
 # ============================================================
-# MASTER EMPLOYEE FILE
+# READ OOO EXCEL
 # ============================================================
 
-def load_master_employees():
-    """
-    Reads:
+def read_ooo_file(filepath):
 
-    Employee Name | Employee Code
+    from openpyxl import load_workbook
 
-    Example:
-
-    Velina   | VR
-    Cristen  | CR
-    Tracy    | TR
-    Shakima  | SL
-    Holly    | HB
-    """
-
-    master_path = os.path.join(os.path.dirname(__file__), MASTER_FILE)
-
-    if not os.path.exists(master_path):
-        raise FileNotFoundError(
-            f"Master file '{MASTER_FILE}' was not found. "
-            f"Place it in the same folder as app.py."
-        )
-
-    wb = load_workbook(master_path, data_only=True)
+    wb = load_workbook(
+        filepath,
+        data_only=True
+    )
 
     ws = wb.active
 
-    employees = []
-
-    headers = {}
-
-    for cell in ws[1]:
-        if cell.value is not None:
-            headers[normalize_text(cell.value).lower()] = cell.column
-
-    name_col = None
-    code_col = None
-
-    for key, col in headers.items():
-
-        if key in [
-            "employee name",
-            "employee",
-            "name"
-        ]:
-            name_col = col
-
-        if key in [
-            "employee code",
-            "code",
-            "emp code",
-            "employee id"
-        ]:
-            code_col = col
-
-    if name_col is None or code_col is None:
-        raise ValueError(
-            "Master file must contain 'Employee Name' and 'Employee Code' columns."
-        )
-
-    for row in range(2, ws.max_row + 1):
-
-        name = normalize_text(ws.cell(row, name_col).value)
-        code = normalize_text(ws.cell(row, code_col).value)
-
-        if name and code:
-
-            employees.append({
-                "name": name,
-                "code": code,
-                "name_key": normalize_name(name)
-            })
-
-    if not employees:
-        raise ValueError("No employees found in the master file.")
-
-    return employees
-
-
-# ============================================================
-# INPUT OOO FILE
-# ============================================================
-
-def load_ooo_data(input_file):
-    """
-    Input file MUST contain only:
-
-    Date | Status | Employee Name
-
-    Example:
-
-    9/25/2026 | Out of Office | Cristen
-    9/24/2026 | Out of Office | Tracy
-    """
-
-    wb = load_workbook(input_file, data_only=True)
-
-    ws = wb.active
+    # --------------------------------------------------------
+    # Find columns
+    # --------------------------------------------------------
 
     headers = {}
 
     for cell in ws[1]:
 
         if cell.value is not None:
-            headers[normalize_text(cell.value).lower()] = cell.column
+
+            headers[
+                str(cell.value).strip().lower()
+            ] = cell.column
 
     date_col = None
     status_col = None
-    name_col = None
+    employee_col = None
 
-    for key, col in headers.items():
+    for header, column in headers.items():
 
-        if key == "date":
-            date_col = col
+        if header in [
+            "date",
+            "ooo date",
+            "out of office date"
+        ]:
+            date_col = column
 
-        elif key == "status":
-            status_col = col
+        elif header in [
+            "status",
+            "ooo status"
+        ]:
+            status_col = column
 
-        elif key in [
+        elif header in [
             "employee name",
             "employee",
             "name"
         ]:
-            name_col = col
+            employee_col = column
+
+    # --------------------------------------------------------
+    # Validate columns
+    # --------------------------------------------------------
 
     if date_col is None:
-        raise ValueError("Input file must contain a 'Date' column.")
+
+        raise ValueError(
+            "Input Excel must contain a 'Date' column."
+        )
 
     if status_col is None:
-        raise ValueError("Input file must contain a 'Status' column.")
 
-    if name_col is None:
-        raise ValueError("Input file must contain an 'Employee Name' column.")
+        raise ValueError(
+            "Input Excel must contain a 'Status' column."
+        )
+
+    if employee_col is None:
+
+        raise ValueError(
+            "Input Excel must contain an 'Employee Name' column."
+        )
+
+    # --------------------------------------------------------
+    # Read records
+    # --------------------------------------------------------
 
     records = []
 
-    for row in range(2, ws.max_row + 1):
+    for row in range(
+        2,
+        ws.max_row + 1
+    ):
 
-        raw_date = ws.cell(row, date_col).value
-        raw_status = ws.cell(row, status_col).value
-        raw_name = ws.cell(row, name_col).value
+        raw_date = ws.cell(
+            row,
+            date_col
+        ).value
 
-        if not raw_date or not raw_name:
+        raw_status = ws.cell(
+            row,
+            status_col
+        ).value
+
+        raw_employee = ws.cell(
+            row,
+            employee_col
+        ).value
+
+        if raw_date is None:
             continue
 
-        parsed_date = parse_date(raw_date)
+        if raw_employee is None:
+            continue
+
+        parsed_date = parse_date(
+            raw_date
+        )
 
         if parsed_date is None:
             continue
 
+        employee_name = clean_name(
+            raw_employee
+        )
+
+        status = normalize_status(
+            raw_status
+        )
+
         records.append({
             "date": parsed_date,
-            "status": normalize_status(raw_status),
-            "name": normalize_text(raw_name),
-            "name_key": normalize_name(raw_name)
+            "status": status,
+            "employee": employee_name,
+            "employee_key": normalize_name(
+                employee_name
+            )
         })
 
     if not records:
+
         raise ValueError(
-            "No valid records were found in the uploaded file."
+            "No valid records were found in the uploaded Excel file."
         )
 
     return records
 
 
 # ============================================================
-# DETERMINE WEEK
+# GET WEEK
 # ============================================================
 
 def get_week_dates(records):
-    """
-    Finds the week represented by the uploaded data.
 
-    If input contains 9/25/2026,
-    week becomes:
-
-    Monday 9/21
-    Tuesday 9/22
-    Wednesday 9/23
-    Thursday 9/24
-    Friday 9/25
-    """
-
-    dates = [
-        r["date"]
-        for r in records
-        if r.get("date") is not None
+    valid_dates = [
+        record["date"]
+        for record in records
+        if record["date"] is not None
     ]
 
-    if not dates:
-        raise ValueError("No valid dates found.")
+    if not valid_dates:
 
-    # Use earliest date in uploaded file
-    reference_date = min(dates)
+        raise ValueError(
+            "No valid dates found."
+        )
 
-    monday = reference_date - timedelta(
-        days=reference_date.weekday()
+    # Earliest date determines the week
+    reference_date = min(
+        valid_dates
     )
 
-    friday = monday + timedelta(days=4)
+    # Monday
+    monday = (
+        reference_date -
+        timedelta(
+            days=reference_date.weekday()
+        )
+    )
 
-    return [
+    # Monday-Friday
+    week_dates = [
         monday + timedelta(days=i)
         for i in range(5)
     ]
 
+    return week_dates
+
 
 # ============================================================
-# BUILD DAILY OOO MAP
+# GET EMPLOYEE CODE
 # ============================================================
 
-def build_ooo_map(records, employees):
-    """
-    Creates:
+def get_employee_code(employee_name):
 
-    {
-        date: {
-            employee_name: employee_code
-        }
-    }
-    """
+    employee_key = normalize_name(
+        employee_name
+    )
 
-    employee_lookup = {
-        employee["name_key"]: employee["code"]
-        for employee in employees
-    }
+    # Exact match
+    for name, code in EMPLOYEE_CODES.items():
 
-    ooo_map = {}
+        if normalize_name(name) == employee_key:
+
+            return code
+
+    # Partial match as backup
+    for name, code in EMPLOYEE_CODES.items():
+
+        master_key = normalize_name(name)
+
+        if (
+            employee_key in master_key
+            or
+            master_key in employee_key
+        ):
+
+            return code
+
+    return None
+
+
+# ============================================================
+# GET OOO EMPLOYEES FOR DATE
+# ============================================================
+
+def get_ooo_codes(
+    current_date,
+    records
+):
+
+    ooo_codes = []
 
     for record in records:
+
+        if record["date"] != current_date:
+            continue
 
         if record["status"] != "OOO":
             continue
 
-        date_value = record["date"]
-        name_key = record["name_key"]
+        employee_code = get_employee_code(
+            record["employee"]
+        )
 
-        # Only recognize employees from master file
-        if name_key not in employee_lookup:
+        if employee_code is None:
             continue
 
-        code = employee_lookup[name_key]
+        if employee_code not in ooo_codes:
 
-        if date_value not in ooo_map:
-            ooo_map[date_value] = []
+            ooo_codes.append(
+                employee_code
+            )
 
-        if code not in ooo_map[date_value]:
-            ooo_map[date_value].append(code)
+    return ooo_codes
 
-    return ooo_map
+
+# ============================================================
+# GET ONLINE EMPLOYEES FOR DATE
+# ============================================================
+
+def get_online_codes(
+    current_date,
+    records
+):
+
+    # Employees OOO today
+    ooo_codes = get_ooo_codes(
+        current_date,
+        records
+    )
+
+    # ALL employees from hard-coded master
+    all_codes = list(
+        EMPLOYEE_CODES.values()
+    )
+
+    # Remove OOO employees
+    online_codes = [
+        code
+        for code in all_codes
+        if code not in ooo_codes
+    ]
+
+    return online_codes
 
 
 # ============================================================
@@ -378,18 +445,22 @@ def build_ooo_map(records, employees):
 
 def create_report(records):
 
-    employees = load_master_employees()
+    # --------------------------------------------------------
+    # Determine week
+    # --------------------------------------------------------
 
-    week_dates = get_week_dates(records)
-
-    ooo_map = build_ooo_map(records, employees)
+    week_dates = get_week_dates(
+        records
+    )
 
     # --------------------------------------------------------
-    # CREATE WORKBOOK
+    # Create workbook
     # --------------------------------------------------------
 
     wb = Workbook()
+
     ws = wb.active
+
     ws.title = "ORB Schedule"
 
     # --------------------------------------------------------
@@ -399,76 +470,16 @@ def create_report(records):
     BLACK = "000000"
     WHITE = "FFFFFF"
 
-    ONLINE_BLUE = "00A6D6"
+    SYNCHRONY_BLUE = "00AEEF"
+
     OOO_YELLOW = "FFC000"
 
-    LIGHT_GREY = "D9E1F2"
+    LIGHT_GREY = "E7E6E6"
 
     RED = "C00000"
 
     # --------------------------------------------------------
-    # FONTS
-    # --------------------------------------------------------
-
-    header_font = Font(
-        name="Calibri",
-        size=11,
-        bold=True,
-        color=WHITE
-    )
-
-    normal_font = Font(
-        name="Calibri",
-        size=11
-    )
-
-    online_font = Font(
-        name="Calibri",
-        size=11,
-        bold=True,
-        color=WHITE
-    )
-
-    ooo_label_font = Font(
-        name="Calibri",
-        size=11,
-        bold=True,
-        color=RED
-    )
-
-    ooo_code_font = Font(
-        name="Calibri",
-        size=11,
-        bold=True,
-        color=RED
-    )
-
-    # --------------------------------------------------------
-    # FILLS
-    # --------------------------------------------------------
-
-    black_fill = PatternFill(
-        fill_type="solid",
-        fgColor=BLACK
-    )
-
-    online_fill = PatternFill(
-        fill_type="solid",
-        fgColor=ONLINE_BLUE
-    )
-
-    ooo_fill = PatternFill(
-        fill_type="solid",
-        fgColor=OOO_YELLOW
-    )
-
-    grey_fill = PatternFill(
-        fill_type="solid",
-        fgColor=LIGHT_GREY
-    )
-
-    # --------------------------------------------------------
-    # BORDER
+    # STYLES
     # --------------------------------------------------------
 
     thin_side = Side(
@@ -483,31 +494,52 @@ def create_report(records):
         bottom=thin_side
     )
 
+    black_fill = PatternFill(
+        fill_type="solid",
+        fgColor=BLACK
+    )
+
+    online_label_fill = PatternFill(
+        fill_type="solid",
+        fgColor=SYNCHRONY_BLUE
+    )
+
+    ooo_label_fill = PatternFill(
+        fill_type="solid",
+        fgColor=OOO_YELLOW
+    )
+
+    data_fill = PatternFill(
+        fill_type="solid",
+        fgColor=LIGHT_GREY
+    )
+
     # --------------------------------------------------------
-    # COLUMN WIDTHS
+    # COLUMN WIDTH
     # --------------------------------------------------------
 
-    ws.column_dimensions["A"].width = 24
+    ws.column_dimensions["A"].width = 25
 
-    for col in range(2, 7):
+    for column in range(2, 7):
+
         ws.column_dimensions[
-            get_column_letter(col)
+            get_column_letter(column)
         ].width = 18
 
     # --------------------------------------------------------
-    # ROW HEIGHTS
+    # ROW HEIGHT
     # --------------------------------------------------------
 
-    ws.row_dimensions[1].height = 22
+    ws.row_dimensions[1].height = 25
     ws.row_dimensions[2].height = 25
-    ws.row_dimensions[3].height = 42
-    ws.row_dimensions[4].height = 30
+    ws.row_dimensions[3].height = 40
+    ws.row_dimensions[4].height = 35
 
     # --------------------------------------------------------
-    # WEEKDAY HEADER
+    # DAY NAMES
     # --------------------------------------------------------
 
-    weekdays = [
+    day_names = [
         "Monday",
         "Tuesday",
         "Wednesday",
@@ -515,7 +547,10 @@ def create_report(records):
         "Friday"
     ]
 
-    for index, day_name in enumerate(weekdays, start=2):
+    for index, day_name in enumerate(
+        day_names,
+        start=2
+    ):
 
         cell = ws.cell(
             row=1,
@@ -523,18 +558,28 @@ def create_report(records):
         )
 
         cell.value = day_name
+
         cell.fill = black_fill
-        cell.font = header_font
+
+        cell.font = Font(
+            name="Calibri",
+            size=11,
+            bold=True,
+            color=WHITE
+        )
+
         cell.alignment = Alignment(
-            horizontal="center",
+            horizontal="left",
             vertical="center"
         )
 
+        cell.border = thin_border
+
     # --------------------------------------------------------
-    # DATE ROW
+    # DATES
     # --------------------------------------------------------
 
-    for index, day_date in enumerate(
+    for index, current_date in enumerate(
         week_dates,
         start=2
     ):
@@ -544,31 +589,51 @@ def create_report(records):
             column=index
         )
 
-        # Excel date
-        cell.value = day_date
+        cell.value = current_date
 
         cell.number_format = "m/d"
 
         cell.fill = black_fill
-        cell.font = header_font
+
+        cell.font = Font(
+            name="Calibri",
+            size=11,
+            bold=True,
+            color=WHITE
+        )
 
         cell.alignment = Alignment(
             horizontal="left",
             vertical="center"
         )
 
+        cell.border = thin_border
+
     # --------------------------------------------------------
-    # LABELS
+    # LEFT LABELS
     # --------------------------------------------------------
 
     ws["A3"] = "Online"
+
     ws["A4"] = "Out of Office"
 
-    ws["A3"].fill = online_fill
-    ws["A3"].font = online_font
+    ws["A3"].fill = online_label_fill
 
-    ws["A4"].fill = ooo_fill
-    ws["A4"].font = ooo_label_font
+    ws["A4"].fill = ooo_label_fill
+
+    ws["A3"].font = Font(
+        name="Calibri",
+        size=11,
+        bold=True,
+        color=WHITE
+    )
+
+    ws["A4"].font = Font(
+        name="Calibri",
+        size=11,
+        bold=True,
+        color=RED
+    )
 
     ws["A3"].alignment = Alignment(
         horizontal="left",
@@ -580,42 +645,33 @@ def create_report(records):
         vertical="center"
     )
 
+    ws["A3"].border = thin_border
+    ws["A4"].border = thin_border
+
     # --------------------------------------------------------
-    # DAILY ONLINE / OOO
+    # DAILY DATA
     # --------------------------------------------------------
 
-    all_codes = [
-        employee["code"]
-        for employee in employees
-    ]
-
-    for index, day_date in enumerate(
+    for index, current_date in enumerate(
         week_dates,
         start=2
     ):
 
-        # --------------------------------------------
-        # OOO CODES
-        # --------------------------------------------
-
-        ooo_codes = ooo_map.get(
-            day_date,
-            []
+        # Get OOO
+        ooo_codes = get_ooo_codes(
+            current_date,
+            records
         )
 
-        # --------------------------------------------
-        # ONLINE CODES
-        # --------------------------------------------
+        # Get Online
+        online_codes = get_online_codes(
+            current_date,
+            records
+        )
 
-        online_codes = [
-            code
-            for code in all_codes
-            if code not in ooo_codes
-        ]
-
-        # --------------------------------------------
-        # ONLINE CELL
-        # --------------------------------------------
+        # -----------------------------------------------
+        # ONLINE
+        # -----------------------------------------------
 
         online_cell = ws.cell(
             row=3,
@@ -626,19 +682,24 @@ def create_report(records):
             online_codes
         )
 
-        online_cell.fill = grey_fill
-        online_cell.font = normal_font
-        online_cell.border = thin_border
+        online_cell.fill = data_fill
+
+        online_cell.font = Font(
+            name="Calibri",
+            size=11
+        )
 
         online_cell.alignment = Alignment(
             horizontal="left",
-            vertical="top",
+            vertical="center",
             wrap_text=True
         )
 
-        # --------------------------------------------
-        # OOO CELL
-        # --------------------------------------------
+        online_cell.border = thin_border
+
+        # -----------------------------------------------
+        # OOO
+        # -----------------------------------------------
 
         ooo_cell = ws.cell(
             row=4,
@@ -649,10 +710,23 @@ def create_report(records):
             ooo_codes
         )
 
-        ooo_cell.fill = grey_fill
-        ooo_cell.border = thin_border
+        ooo_cell.fill = data_fill
 
-        ooo_cell.font = ooo_code_font
+        if ooo_codes:
+
+            ooo_cell.font = Font(
+                name="Calibri",
+                size=11,
+                bold=True,
+                color=RED
+            )
+
+        else:
+
+            ooo_cell.font = Font(
+                name="Calibri",
+                size=11
+            )
 
         ooo_cell.alignment = Alignment(
             horizontal="left",
@@ -660,27 +734,10 @@ def create_report(records):
             wrap_text=True
         )
 
-        # Red font ONLY if OOO exists
-        if ooo_codes:
-            ooo_cell.font = ooo_code_font
-        else:
-            ooo_cell.font = normal_font
+        ooo_cell.border = thin_border
 
     # --------------------------------------------------------
-    # BORDERS FOR HEADER
-    # --------------------------------------------------------
-
-    for row in range(1, 5):
-
-        for col in range(2, 7):
-
-            ws.cell(
-                row=row,
-                column=col
-            ).border = thin_border
-
-    # --------------------------------------------------------
-    # WORK QUEUE SECTION
+    # OTHER ROWS FROM YOUR FORMAT
     # --------------------------------------------------------
 
     ws["A5"] = "TG2/TG3 Agenda"
@@ -701,7 +758,8 @@ def create_report(records):
             row=row,
             column=1
         ).alignment = Alignment(
-            horizontal="left"
+            horizontal="left",
+            vertical="center"
         )
 
     # --------------------------------------------------------
@@ -714,25 +772,28 @@ def create_report(records):
     # PAGE SETUP
     # --------------------------------------------------------
 
-    ws.sheet_view.showGridLines = True
-
     ws.page_setup.orientation = "landscape"
+
     ws.page_setup.fitToWidth = 1
+
     ws.page_setup.fitToHeight = 1
 
     ws.sheet_properties.pageSetUpPr.fitToPage = True
 
     # --------------------------------------------------------
-    # OUTPUT
+    # OUTPUT NAME
     # --------------------------------------------------------
 
     start_date = week_dates[0]
+
     end_date = week_dates[-1]
 
     filename = (
-        f"ORB_OOO_Schedule_"
-        f"{start_date.strftime('%Y%m%d')}_"
-        f"{end_date.strftime('%Y%m%d')}.xlsx"
+        "ORB_OOO_Schedule_"
+        + start_date.strftime("%Y%m%d")
+        + "_"
+        + end_date.strftime("%Y%m%d")
+        + ".xlsx"
     )
 
     output_path = os.path.join(
@@ -740,13 +801,15 @@ def create_report(records):
         filename
     )
 
-    wb.save(output_path)
+    wb.save(
+        output_path
+    )
 
     return output_path
 
 
 # ============================================================
-# FLASK ROUTES
+# HOME
 # ============================================================
 
 @app.route("/")
@@ -757,6 +820,10 @@ def index():
     )
 
 
+# ============================================================
+# GENERATE REPORT
+# ============================================================
+
 @app.route(
     "/generate",
     methods=["POST"]
@@ -765,43 +832,61 @@ def generate():
 
     try:
 
-        if "file" not in request.files:
+        uploaded_file = request.files.get(
+            "file"
+        )
+
+        if uploaded_file is None:
 
             return render_template(
                 "index.html",
-                error="Please upload the OOO Excel file."
+                error="Please upload an Excel file."
             )
 
-        uploaded_file = request.files["file"]
-
-        if not uploaded_file.filename:
+        if uploaded_file.filename == "":
 
             return render_template(
                 "index.html",
                 error="Please select an Excel file."
             )
 
+        # ----------------------------------------------------
         # Save uploaded file
+        # ----------------------------------------------------
+
+        input_filename = (
+            uploaded_file.filename
+        )
+
         input_path = os.path.join(
             UPLOAD_FOLDER,
-            uploaded_file.filename
+            input_filename
         )
 
         uploaded_file.save(
             input_path
         )
 
-        # Read input
-        records = load_ooo_data(
+        # ----------------------------------------------------
+        # Read OOO
+        # ----------------------------------------------------
+
+        records = read_ooo_file(
             input_path
         )
 
+        # ----------------------------------------------------
         # Generate report
+        # ----------------------------------------------------
+
         output_path = create_report(
             records
         )
 
-        # Automatically download
+        # ----------------------------------------------------
+        # Download automatically
+        # ----------------------------------------------------
+
         return send_file(
             output_path,
             as_attachment=True,
@@ -816,7 +901,10 @@ def generate():
 
     except Exception as e:
 
-        print("ERROR:", str(e))
+        print(
+            "ERROR:",
+            repr(e)
+        )
 
         return render_template(
             "index.html",
