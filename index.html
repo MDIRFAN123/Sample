@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>ORB OOO Schedule</title>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            background: #f4f7fa;
+            color: #1f2933;
+        }
+
+        /* ==============================
+           HEADER
+        ============================== */
+
+        .header {
+            height: 58px;
+            background: #ffffff;
+            border-bottom: 1px solid #e1e6eb;
+
+            display: flex;
+            align-items: center;
+
+            padding: 0 28px;
+        }
+
+        .brand {
+            font-size: 20px;
+            font-weight: 700;
+            color: #0066a1;
+            letter-spacing: -0.3px;
+        }
+
+        .brand span {
+            color: #00a4e4;
+        }
+
+
+        /* ==============================
+           PAGE
+        ============================== */
+
+        .page {
+            min-height: calc(100vh - 58px);
+
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+
+            padding-top: 55px;
+        }
+
+
+        /* ==============================
+           MAIN CARD
+        ============================== */
+
+        .card {
+            width: 460px;
+            max-width: 92%;
+
+            background: #ffffff;
+
+            border-radius: 8px;
+
+            border: 1px solid #e0e6eb;
+
+            box-shadow:
+                0 4px 14px rgba(0, 0, 0, 0.06);
+
+            padding: 24px;
+        }
+
+
+        /* ==============================
+           TITLE
+        ============================== */
+
+        .title {
+            margin: 0;
+
+            font-size: 21px;
+            font-weight: 700;
+
+            color: #12344d;
+        }
+
+        .subtitle {
+            margin-top: 5px;
+
+            font-size: 13px;
+
+            color: #6b7280;
+        }
+
+
+        /* ==============================
+           UPLOAD
+        ============================== */
+
+        .upload-area {
+
+            margin-top: 22px;
+
+            height: 170px;
+
+            border: 1.5px dashed #8eb9d2;
+
+            border-radius: 7px;
+
+            background: #f8fbfd;
+
+            display: flex;
+
+            flex-direction: column;
+
+            align-items: center;
+
+            justify-content: center;
+
+            text-align: center;
+
+            cursor: pointer;
+
+            transition: 0.2s ease;
+        }
+
+        .upload-area:hover {
+
+            border-color: #0066a1;
+
+            background: #f2f9fc;
+        }
+
+        .upload-icon {
+
+            width: 42px;
+            height: 42px;
+
+            border-radius: 50%;
+
+            background: #e5f4fb;
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content: center;
+
+            font-size: 21px;
+
+            margin-bottom: 10px;
+        }
+
+        .upload-title {
+
+            font-size: 15px;
+
+            font-weight: 700;
+
+            color: #12344d;
+        }
+
+        .upload-text {
+
+            margin-top: 5px;
+
+            font-size: 12px;
+
+            color: #7a8793;
+        }
+
+        .file-name {
+
+            margin-top: 9px;
+
+            max-width: 90%;
+
+            font-size: 12px;
+
+            color: #0066a1;
+
+            font-weight: 600;
+
+            overflow: hidden;
+
+            text-overflow: ellipsis;
+
+            white-space: nowrap;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+
+        /* ==============================
+           INFO
+        ============================== */
+
+        .info {
+
+            margin-top: 14px;
+
+            padding: 10px 12px;
+
+            border-radius: 5px;
+
+            background: #f5f8fa;
+
+            font-size: 11px;
+
+            line-height: 1.5;
+
+            color: #66737e;
+        }
+
+        .info strong {
+
+            color: #34495e;
+        }
+
+
+        /* ==============================
+           PROCESSING
+        ============================== */
+
+        .processing {
+
+            display: none;
+
+            margin-top: 16px;
+
+            text-align: center;
+
+            font-size: 13px;
+
+            font-weight: 600;
+
+            color: #0066a1;
+        }
+
+        .spinner {
+
+            width: 16px;
+            height: 16px;
+
+            border: 2px solid #dce8ef;
+
+            border-top-color: #0066a1;
+
+            border-radius: 50%;
+
+            display: inline-block;
+
+            vertical-align: middle;
+
+            margin-right: 7px;
+
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+
+        }
+
+
+        /* ==============================
+           ERROR
+        ============================== */
+
+        .error {
+
+            margin-bottom: 15px;
+
+            padding: 10px 12px;
+
+            border-radius: 5px;
+
+            background: #fff4f3;
+
+            border-left: 3px solid #d93025;
+
+            color: #a52218;
+
+            font-size: 12px;
+        }
+
+
+        /* ==============================
+           SUCCESS
+        ============================== */
+
+        .success {
+
+            margin-top: 20px;
+
+            padding: 10px 12px;
+
+            border-radius: 5px;
+
+            background: #eef9f2;
+
+            border-left: 3px solid #2e8b57;
+
+            color: #246b43;
+
+            font-size: 12px;
+
+            font-weight: 600;
+        }
+
+
+        /* ==============================
+           REPORT
+        ============================== */
+
+        .report {
+
+            margin-top: 12px;
+
+            padding: 16px;
+
+            border: 1px solid #e2e8ed;
+
+            border-radius: 6px;
+
+            background: #ffffff;
+        }
+
+        .report-title {
+
+            font-size: 14px;
+
+            font-weight: 700;
+
+            color: #12344d;
+
+            margin-bottom: 8px;
+        }
+
+        .report-details {
+
+            font-size: 12px;
+
+            line-height: 1.7;
+
+            color: #687580;
+        }
+
+        .download {
+
+            display: inline-block;
+
+            margin-top: 12px;
+
+            padding: 8px 14px;
+
+            background: #0066a1;
+
+            color: white;
+
+            text-decoration: none;
+
+            border-radius: 4px;
+
+            font-size: 12px;
+
+            font-weight: 600;
+
+            transition: 0.2s;
+        }
+
+        .download:hover {
+
+            background: #004f7d;
+        }
+
+        .new-report {
+
+            display: block;
+
+            margin-top: 15px;
+
+            text-align: center;
+
+            color: #0066a1;
+
+            font-size: 12px;
+
+            text-decoration: none;
+        }
+
+
+        /* ==============================
+           MOBILE
+        ============================== */
+
+        @media (max-width: 600px) {
+
+            .header {
+                padding: 0 18px;
+            }
+
+            .page {
+                padding-top: 30px;
+            }
+
+            .card {
+                padding: 18px;
+            }
+
+            .upload-area {
+                height: 155px;
+            }
+
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+
+<!-- ==========================================
+     HEADER
+=========================================== -->
+
+<div class="header">
+
+    <div class="brand">
+
+        ORB <span>OOO</span> Schedule
+
+    </div>
+
+</div>
+
+
+<!-- ==========================================
+     PAGE
+=========================================== -->
+
+<div class="page">
+
+
+    {% with messages =
+        get_flashed_messages(
+            with_categories=true
+        )
+    %}
+
+        {% for category, message in messages %}
+
+            <div class="{{ category }}"
+                 style="
+                    position:absolute;
+                    top:75px;
+                    width:460px;
+                    max-width:92%;
+                 ">
+
+                {{ message }}
+
+            </div>
+
+        {% endfor %}
+
+    {% endwith %}
+
+
+    {% if success %}
+
+        <!-- ======================================
+             SUCCESS RESULT
+        ======================================= -->
+
+        <div class="card">
+
+            <h1 class="title">
+                ORB OOO Schedule
+            </h1>
+
+            <div class="success">
+
+                ✓ Report generated successfully
+
+            </div>
+
+
+            {% for report in reports %}
+
+                <div class="report">
+
+                    <div class="report-title">
+
+                        Weekly Report
+
+                    </div>
+
+
+                    <div class="report-details">
+
+                        <strong>
+                            Week:
+                        </strong>
+
+                        {{ report.monday.strftime('%m/%d/%Y') }}
+
+                        -
+
+                        {{ report.friday.strftime('%m/%d/%Y') }}
+
+                        <br>
+
+
+                        <strong>
+                            OOO:
+                        </strong>
+
+                        {% for record in report.records %}
+
+                            {{ record.employee }}
+
+                            {% if not loop.last %}
+                                ,
+                            {% endif %}
+
+                        {% endfor %}
+
+                    </div>
+
+
+                    <a
+                        class="download"
+                        href="{{
+                            url_for(
+                                'download',
+                                filename=report.filename
+                            )
+                        }}"
+                    >
+
+                        Download Report
+
+                    </a>
+
+                </div>
+
+            {% endfor %}
+
+
+            <a
+                href="/"
+                class="new-report"
+            >
+
+                ← Upload another file
+
+            </a>
+
+        </div>
+
+
+    {% else %}
+
+
+        <!-- ======================================
+             UPLOAD CARD
+        ======================================= -->
+
+        <div class="card">
+
+
+            <h1 class="title">
+
+                ORB OOO Schedule
+
+            </h1>
+
+
+            <div class="subtitle">
+
+                Upload OOO Excel to generate the schedule
+
+            </div>
+
+
+            <form
+                method="POST"
+                enctype="multipart/form-data"
+                id="uploadForm"
+            >
+
+
+                <label
+                    class="upload-area"
+                    for="ooo_file"
+                    id="uploadArea"
+                >
+
+
+                    <div class="upload-icon">
+
+                        📊
+
+                    </div>
+
+
+                    <div class="upload-title">
+
+                        Upload Excel
+
+                    </div>
+
+
+                    <div class="upload-text">
+
+                        Click to select OOO file
+
+                    </div>
+
+
+                    <div class="upload-text">
+
+                        Date • Status • Employee Name
+
+                    </div>
+
+
+                    <div
+                        id="fileName"
+                        class="file-name"
+                    ></div>
+
+
+                </label>
+
+
+                <input
+                    type="file"
+                    id="ooo_file"
+                    name="ooo_file"
+                    accept=".xlsx,.xlsm"
+                    required
+                >
+
+
+                <div
+                    class="info"
+                    id="infoBox"
+                >
+
+                    <strong>
+                        Automatic generation
+                    </strong>
+
+                    — Select the file and the weekly
+                    ORB schedule will be generated automatically.
+
+                </div>
+
+
+                <div
+                    class="processing"
+                    id="processing"
+                >
+
+                    <span class="spinner"></span>
+
+                    Generating report...
+
+                </div>
+
+
+            </form>
+
+        </div>
+
+    {% endif %}
+
+</div>
+
+
+<!-- ==========================================
+     JAVASCRIPT
+=========================================== -->
+
+<script>
+
+    const fileInput =
+        document.getElementById("ooo_file");
+
+    const fileName =
+        document.getElementById("fileName");
+
+    const uploadForm =
+        document.getElementById("uploadForm");
+
+    const uploadArea =
+        document.getElementById("uploadArea");
+
+    const infoBox =
+        document.getElementById("infoBox");
+
+    const processing =
+        document.getElementById("processing");
+
+
+    if (fileInput) {
+
+        fileInput.addEventListener(
+            "change",
+            function () {
+
+                if (
+                    this.files &&
+                    this.files.length > 0
+                ) {
+
+                    fileName.textContent =
+                        this.files[0].name;
+
+                    if (infoBox) {
+
+                        infoBox.style.display =
+                            "none";
+
+                    }
+
+                    if (processing) {
+
+                        processing.style.display =
+                            "block";
+
+                    }
+
+                    if (uploadArea) {
+
+                        uploadArea.style.pointerEvents =
+                            "none";
+
+                        uploadArea.style.opacity =
+                            "0.65";
+
+                    }
+
+                    /*
+                     * Automatically generate
+                     */
+
+                    setTimeout(
+                        function () {
+
+                            uploadForm.submit();
+
+                        },
+                        150
+                    );
+
+                }
+
+            }
+        );
+
+    }
+
+</script>
+
+
+</body>
+
+</html>
