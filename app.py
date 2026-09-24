@@ -1,6 +1,6 @@
 import os
-import re
 from datetime import datetime, date, timedelta
+from copy import copy
 
 from flask import (
     Flask,
@@ -47,7 +47,33 @@ app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024
 
 
 # ============================================================
-# TEXT HELPERS
+# TEMPLATE STRUCTURE
+# ============================================================
+
+# Based on your actual Excel template:
+#
+#        C       D       E       F       G
+#        Mon     Tue     Wed     Thu     Fri
+#
+# Row 2 = Date
+# Row 3 = Online
+# Row 4 = Out of Office
+
+DAY_COLUMNS = {
+    0: "C",   # Monday
+    1: "D",   # Tuesday
+    2: "E",   # Wednesday
+    3: "F",   # Thursday
+    4: "G"    # Friday
+}
+
+DATE_ROW = 2
+ONLINE_ROW = 3
+OOO_ROW = 4
+
+
+# ============================================================
+# NORMALIZE TEXT
 # ============================================================
 
 def normalize(value):
@@ -55,26 +81,21 @@ def normalize(value):
     if value is None:
         return ""
 
-    return re.sub(
-        r"\s+",
-        " ",
-        str(value).strip().lower()
+    return " ".join(
+        str(value).strip().lower().split()
     )
 
 
-def normalize_header(value):
-
-    return normalize(value).replace("_", " ")
-
-
 # ============================================================
-# DATE HELPERS
+# PARSE DATE
 # ============================================================
 
 def parse_date(value):
 
     if value is None:
-        raise ValueError("Date is required.")
+        raise ValueError(
+            "Date cannot be empty."
+        )
 
     if isinstance(value, datetime):
         return value.date()
@@ -100,41 +121,45 @@ def parse_date(value):
 
         try:
 
-            parsed = datetime.strptime(
+            result = datetime.strptime(
                 text,
                 fmt
             )
 
-            # If user gives only month/day,
+            # If year was not supplied
             # use current year.
 
             if "%Y" not in fmt and "%y" not in fmt:
 
-                parsed = parsed.replace(
+                result = result.replace(
                     year=date.today().year
                 )
 
-            return parsed.date()
+            return result.date()
 
         except ValueError:
             continue
 
     raise ValueError(
-        f"Invalid date '{value}'. "
-        f"Use MM/DD/YYYY."
+        f"Invalid date: {value}. "
+        f"Please use MM/DD/YYYY."
     )
 
 
-def get_monday(value):
+# ============================================================
+# GET WEEK
+# ============================================================
 
-    return value - timedelta(
-        days=value.weekday()
+def get_monday(input_date):
+
+    return input_date - timedelta(
+        days=input_date.weekday()
     )
 
 
-def get_friday(value):
+def get_friday(monday):
 
-    return get_monday(value) + timedelta(
+    return monday + timedelta(
         days=4
     )
 
@@ -151,7 +176,7 @@ def read_employee_master():
 
         raise FileNotFoundError(
             "ORB_Employee_Master.xlsx "
-            "was not found next to app.py."
+            "was not found."
         )
 
     wb = load_workbook(
@@ -167,44 +192,56 @@ def read_employee_master():
 
         ws = wb.active
 
-    headers = {}
+
+    # --------------------------------------------------------
+    # Find columns
+    # --------------------------------------------------------
+
+    name_col = None
+    code_col = None
 
     for col in range(
         1,
         ws.max_column + 1
     ):
 
-        header = normalize_header(
+        header = normalize(
             ws.cell(1, col).value
         )
 
-        if header:
+        if header in (
+            "employee name",
+            "employee"
+        ):
 
-            headers[header] = col
+            name_col = col
 
-    name_col = (
-        headers.get("employee name")
-        or headers.get("employee")
-    )
+        elif header in (
+            "employee code",
+            "code"
+        ):
 
-    code_col = (
-        headers.get("employee code")
-        or headers.get("code")
-    )
+            code_col = col
 
-    if not name_col:
 
-        raise ValueError(
-            "ORB_Employee_Master.xlsx must "
-            "contain 'Employee Name'."
-        )
-
-    if not code_col:
+    if name_col is None:
 
         raise ValueError(
-            "ORB_Employee_Master.xlsx must "
-            "contain 'Employee Code'."
+            "Employee Master must contain "
+            "'Employee Name'."
         )
+
+    if code_col is None:
+
+        raise ValueError(
+            "Employee Master must contain "
+            "'Employee Code'."
+        )
+
+
+    # --------------------------------------------------------
+    # Read employees
+    # --------------------------------------------------------
 
     employee_map = {}
 
@@ -223,38 +260,35 @@ def read_employee_master():
             code_col
         ).value
 
-        if name is None and code is None:
+
+        if not name and not code:
+
             continue
+
 
         if not name or not code:
 
-            raise ValueError(
-                f"Employee Master row {row} "
-                f"must contain Employee Name "
-                f"and Employee Code."
-            )
+            continue
+
 
         employee_map[
             normalize(name)
         ] = str(code).strip()
 
+
     if not employee_map:
 
         raise ValueError(
-            "No employees were found in "
+            "No employees found in "
             "ORB_Employee_Master.xlsx."
         )
+
 
     return employee_map
 
 
 # ============================================================
-# READ INPUT EXCEL
-#
-# Expected columns:
-#
-# Date | Status | Employee Name
-#
+# READ INPUT FILE
 # ============================================================
 
 def read_input_file(file_path):
@@ -266,49 +300,70 @@ def read_input_file(file_path):
 
     ws = wb.active
 
-    headers = {}
+
+    # --------------------------------------------------------
+    # Find input columns
+    # --------------------------------------------------------
+
+    date_col = None
+    status_col = None
+    employee_col = None
+
 
     for col in range(
         1,
         ws.max_column + 1
     ):
 
-        header = normalize_header(
+        header = normalize(
             ws.cell(1, col).value
         )
 
-        if header:
+        if header == "date":
 
-            headers[header] = col
+            date_col = col
 
-    date_col = headers.get("date")
+        elif header == "status":
 
-    status_col = headers.get("status")
+            status_col = col
 
-    employee_col = (
-        headers.get("employee name")
-        or headers.get("employee")
-    )
+        elif header in (
+            "employee name",
+            "employee"
+        ):
+
+            employee_col = col
+
 
     missing = []
 
-    if not date_col:
+
+    if date_col is None:
         missing.append("Date")
 
-    if not status_col:
+
+    if status_col is None:
         missing.append("Status")
 
-    if not employee_col:
+
+    if employee_col is None:
         missing.append("Employee Name")
+
 
     if missing:
 
         raise ValueError(
-            "Input Excel is missing: "
+            "Missing columns: "
             + ", ".join(missing)
         )
 
+
     records = []
+
+
+    # --------------------------------------------------------
+    # Read rows
+    # --------------------------------------------------------
 
     for row in range(
         2,
@@ -330,6 +385,7 @@ def read_input_file(file_path):
             employee_col
         ).value
 
+
         # Ignore blank rows.
 
         if (
@@ -337,7 +393,9 @@ def read_input_file(file_path):
             and status_value is None
             and employee_value is None
         ):
+
             continue
+
 
         if (
             date_value is None
@@ -350,9 +408,13 @@ def read_input_file(file_path):
                 f"and Employee Name are required."
             )
 
+
         status = normalize(
             status_value
         )
+
+
+        # We only expect OOO records.
 
         if status not in (
             "ooo",
@@ -363,6 +425,7 @@ def read_input_file(file_path):
                 f"Row {row}: Status must be "
                 f"'OOO' or 'Out of Office'."
             )
+
 
         records.append({
 
@@ -376,231 +439,48 @@ def read_input_file(file_path):
 
         })
 
+
     if not records:
 
         raise ValueError(
             "No OOO records found."
         )
 
+
     return records
-
-
-# ============================================================
-# FIND REPORT TEMPLATE STRUCTURE
-# ============================================================
-
-def find_schedule_structure(ws):
-
-    online_row = None
-
-    ooo_row = None
-
-    # --------------------------------------------------------
-    # Find Online and Out of Office rows
-    # --------------------------------------------------------
-
-    for row in range(
-        1,
-        ws.max_row + 1
-    ):
-
-        for col in range(
-            1,
-            ws.max_column + 1
-        ):
-
-            value = normalize(
-                ws.cell(
-                    row,
-                    col
-                ).value
-            )
-
-            if value == "online":
-
-                online_row = row
-
-            elif value == "out of office":
-
-                ooo_row = row
-
-    if online_row is None:
-
-        raise ValueError(
-            "Could not find 'Online' "
-            "in ORB_OOO_Schedule.xlsx."
-        )
-
-    if ooo_row is None:
-
-        raise ValueError(
-            "Could not find 'Out of Office' "
-            "in ORB_OOO_Schedule.xlsx."
-        )
-
-    # --------------------------------------------------------
-    # Find Monday-Friday columns
-    # --------------------------------------------------------
-
-    weekday_cols = {}
-
-    header_row = None
-
-    for row in range(
-        1,
-        min(ws.max_row, 20) + 1
-    ):
-
-        found = {}
-
-        for col in range(
-            1,
-            ws.max_column + 1
-        ):
-
-            value = normalize(
-                ws.cell(
-                    row,
-                    col
-                ).value
-            )
-
-            if value in (
-                "monday",
-                "tuesday",
-                "wednesday",
-                "thursday",
-                "friday"
-            ):
-
-                found[value] = col
-
-        if len(found) == 5:
-
-            header_row = row
-
-            weekday_cols = found
-
-            break
-
-    if header_row is None:
-
-        raise ValueError(
-            "Could not find Monday-Friday "
-            "headers in the report template."
-        )
-
-    return {
-
-        "online_row": online_row,
-
-        "ooo_row": ooo_row,
-
-        "header_row": header_row,
-
-        "date_row": header_row + 1,
-
-        "weekday_cols": weekday_cols
-
-    }
-
-
-# ============================================================
-# UPDATE DATES
-# ============================================================
-
-def update_week_dates(
-    ws,
-    structure,
-    monday
-):
-
-    for i in range(5):
-
-        current_date = (
-            monday + timedelta(days=i)
-        )
-
-        day_name = (
-            current_date
-            .strftime("%A")
-            .lower()
-        )
-
-        col = structure[
-            "weekday_cols"
-        ][day_name]
-
-        # Day name
-
-        ws.cell(
-            structure["header_row"],
-            col
-        ).value = current_date.strftime(
-            "%A"
-        )
-
-        # Date
-
-        ws.cell(
-            structure["date_row"],
-            col
-        ).value = (
-            f"{current_date.month}/"
-            f"{current_date.day}"
-        )
-
-
-# ============================================================
-# CLEAR CELL
-# ============================================================
-
-def clear_cell(cell):
-
-    cell.value = None
-
-
-# ============================================================
-# ADD CODES TO CELL
-# ============================================================
-
-def set_codes(cell, codes):
-
-    cell.value = "/".join(
-        str(code)
-        for code in codes
-    )
-
-
-# ============================================================
-# MARK OOO
-# ============================================================
-
-def mark_ooo(cell):
-
-    try:
-
-        cell.font = cell.font.copy(
-            color="C00000",
-            bold=True
-        )
-
-    except Exception:
-
-        pass
 
 
 # ============================================================
 # GENERATE ONE WEEK
 # ============================================================
 
-def process_week(
-    records,
+def generate_week_report(
+    all_records,
     monday
 ):
 
     # --------------------------------------------------------
-    # Check template
+    # Read employee master
+    # --------------------------------------------------------
+
+    employee_map = read_employee_master()
+
+
+    # Example:
+    #
+    # Velina  -> VR
+    # Cristen -> CR
+    # Tracy   -> TP
+    # Shakima -> HB
+    #
+
+    all_employee_codes = list(
+        employee_map.values()
+    )
+
+
+    # --------------------------------------------------------
+    # Load template
     # --------------------------------------------------------
 
     if not os.path.exists(
@@ -612,32 +492,15 @@ def process_week(
             "was not found."
         )
 
-    # --------------------------------------------------------
-    # Read employee master
-    # --------------------------------------------------------
-
-    employee_map = read_employee_master()
-
-    # Example:
-    #
-    # {
-    #     "velina": "VR",
-    #     "cristen": "CR",
-    #     "tracy": "TP",
-    #     "shakima": "HB"
-    # }
-
-    all_employee_codes = list(
-        employee_map.values()
-    )
-
-    # --------------------------------------------------------
-    # Load report template
-    # --------------------------------------------------------
 
     wb = load_workbook(
         REPORT_TEMPLATE_FILE
     )
+
+
+    # --------------------------------------------------------
+    # Select worksheet
+    # --------------------------------------------------------
 
     if "Weekly Schedule" in wb.sheetnames:
 
@@ -647,104 +510,9 @@ def process_week(
 
         ws = wb.active
 
-    # --------------------------------------------------------
-    # Find structure
-    # --------------------------------------------------------
-
-    structure = find_schedule_structure(
-        ws
-    )
 
     # --------------------------------------------------------
     # Update dates
-    # --------------------------------------------------------
-
-    update_week_dates(
-        ws,
-        structure,
-        monday
-    )
-
-    friday = get_friday(
-        monday
-    )
-
-    # --------------------------------------------------------
-    # Get this week's records
-    # --------------------------------------------------------
-
-    week_records = [
-
-        record
-
-        for record in records
-
-        if (
-            monday
-            <= record["date"]
-            <= friday
-        )
-
-    ]
-
-    # --------------------------------------------------------
-    # Validate employees
-    # --------------------------------------------------------
-
-    for record in week_records:
-
-        employee_key = normalize(
-            record["employee"]
-        )
-
-        if employee_key not in employee_map:
-
-            raise ValueError(
-                f"Employee "
-                f"'{record['employee']}' "
-                f"is not present in "
-                f"ORB_Employee_Master.xlsx."
-            )
-
-    # --------------------------------------------------------
-    # Create OOO mapping
-    #
-    # Date -> Employee Codes
-    #
-    # --------------------------------------------------------
-
-    ooo_by_date = {}
-
-    for record in week_records:
-
-        employee_key = normalize(
-            record["employee"]
-        )
-
-        employee_code = employee_map[
-            employee_key
-        ]
-
-        record_date = record["date"]
-
-        if record_date not in ooo_by_date:
-
-            ooo_by_date[
-                record_date
-            ] = []
-
-        if employee_code not in ooo_by_date[
-            record_date
-        ]:
-
-            ooo_by_date[
-                record_date
-            ].append(
-                employee_code
-            )
-
-    # --------------------------------------------------------
-    # PROCESS MONDAY-FRIDAY
     # --------------------------------------------------------
 
     for day_number in range(5):
@@ -756,31 +524,139 @@ def process_week(
             )
         )
 
-        day_name = (
-            current_date
-            .strftime("%A")
-            .lower()
+        column = DAY_COLUMNS[
+            day_number
+        ]
+
+
+        # Example:
+        #
+        # C2 = 9/28
+        # D2 = 9/29
+        # etc.
+
+        ws[f"{column}{DATE_ROW}"] = (
+            f"{current_date.month}/"
+            f"{current_date.day}"
         )
 
-        column = structure[
-            "weekday_cols"
-        ][day_name]
 
-        # ====================================================
-        # GET OOO EMPLOYEES FOR THIS DAY
-        # ====================================================
+    # --------------------------------------------------------
+    # Get records for this week
+    # --------------------------------------------------------
+
+    friday = get_friday(
+        monday
+    )
+
+
+    week_records = [
+
+        record
+
+        for record in all_records
+
+        if (
+            monday
+            <= record["date"]
+            <= friday
+        )
+
+    ]
+
+
+    # --------------------------------------------------------
+    # Build OOO mapping
+    #
+    # Example:
+    #
+    # Thursday -> ["VR", "CR"]
+    #
+    # --------------------------------------------------------
+
+    ooo_by_date = {}
+
+
+    for record in week_records:
+
+        employee_name = normalize(
+            record["employee"]
+        )
+
+
+        if employee_name not in employee_map:
+
+            raise ValueError(
+                f"Employee '{record['employee']}' "
+                f"is not present in "
+                f"ORB_Employee_Master.xlsx."
+            )
+
+
+        employee_code = employee_map[
+            employee_name
+        ]
+
+
+        current_date = record[
+            "date"
+        ]
+
+
+        if current_date not in ooo_by_date:
+
+            ooo_by_date[
+                current_date
+            ] = []
+
+
+        if employee_code not in ooo_by_date[
+            current_date
+        ]:
+
+            ooo_by_date[
+                current_date
+            ].append(
+                employee_code
+            )
+
+
+    # ========================================================
+    # PROCESS MONDAY-FRIDAY
+    # ========================================================
+
+    for day_number in range(5):
+
+        current_date = (
+            monday
+            + timedelta(
+                days=day_number
+            )
+        )
+
+
+        column = DAY_COLUMNS[
+            day_number
+        ]
+
+
+        # ----------------------------------------------------
+        # Employees OOO on this day
+        # ----------------------------------------------------
 
         ooo_codes = ooo_by_date.get(
             current_date,
             []
         )
 
-        # ====================================================
+
+        # ----------------------------------------------------
         # ONLINE
         #
-        # Start with EVERY employee.
-        # Remove employees who are OOO.
-        # ====================================================
+        # Everyone starts as Online.
+        #
+        # Remove OOO employees.
+        # ----------------------------------------------------
 
         online_codes = [
 
@@ -792,63 +668,59 @@ def process_week(
 
         ]
 
+
         # ----------------------------------------------------
-        # Clear existing Online cells
+        # Write ONLINE
         #
-        # This clears everything between Online and OOO.
+        # C3 / D3 / E3 / F3 / G3
         # ----------------------------------------------------
 
-        for row in range(
-            structure["online_row"],
-            structure["ooo_row"]
-        ):
+        online_cell = ws[
+            f"{column}{ONLINE_ROW}"
+        ]
 
-            ws.cell(
-                row,
-                column
-            ).value = None
 
-        # ----------------------------------------------------
-        # Put ALL ONLINE employees into first Online cell
-        # ----------------------------------------------------
-
-        online_cell = ws.cell(
-            structure["online_row"],
-            column
-        )
-
-        set_codes(
-            online_cell,
+        online_cell.value = "/".join(
             online_codes
         )
 
-        # ====================================================
-        # OUT OF OFFICE
-        # ====================================================
 
-        ooo_cell = ws.cell(
-            structure["ooo_row"],
-            column
+        # ----------------------------------------------------
+        # Write OUT OF OFFICE
+        #
+        # C4 / D4 / E4 / F4 / G4
+        # ----------------------------------------------------
+
+        ooo_cell = ws[
+            f"{column}{OOO_ROW}"
+        ]
+
+
+        ooo_cell.value = "/".join(
+            ooo_codes
         )
 
-        # Clear old OOO value first.
 
-        ooo_cell.value = None
+        # ----------------------------------------------------
+        # Make OOO red
+        # ----------------------------------------------------
 
         if ooo_codes:
 
-            set_codes(
-                ooo_cell,
-                ooo_codes
+            new_font = copy(
+                ooo_cell.font
             )
 
-            mark_ooo(
-                ooo_cell
-            )
+            new_font.color = "C00000"
 
-    # --------------------------------------------------------
-    # SAVE FILE
-    # --------------------------------------------------------
+            new_font.bold = True
+
+            ooo_cell.font = new_font
+
+
+    # ========================================================
+    # SAVE REPORT
+    # ========================================================
 
     filename = (
         "ORB_OOO_Schedule_"
@@ -858,14 +730,17 @@ def process_week(
         + ".xlsx"
     )
 
+
     output_path = os.path.join(
         OUTPUT_FOLDER,
         filename
     )
 
+
     wb.save(
         output_path
     )
+
 
     return {
 
@@ -883,15 +758,16 @@ def process_week(
 
 
 # ============================================================
-# GENERATE REPORTS
+# GENERATE ALL WEEKS
 # ============================================================
 
 def generate_reports(records):
 
     weeks = {}
 
+
     # --------------------------------------------------------
-    # Group records by week
+    # Group dates into Monday-Friday weeks
     # --------------------------------------------------------
 
     for record in records:
@@ -900,15 +776,19 @@ def generate_reports(records):
             record["date"]
         )
 
+
         if monday not in weeks:
 
             weeks[monday] = []
+
 
         weeks[monday].append(
             record
         )
 
+
     reports = []
+
 
     # --------------------------------------------------------
     # Generate each week
@@ -918,20 +798,22 @@ def generate_reports(records):
         weeks.keys()
     ):
 
-        report = process_week(
+        report = generate_week_report(
             records,
             monday
         )
+
 
         reports.append(
             report
         )
 
+
     return reports
 
 
 # ============================================================
-# HOME / UPLOAD
+# HOME
 # ============================================================
 
 @app.route(
@@ -941,7 +823,7 @@ def generate_reports(records):
 def index():
 
     # --------------------------------------------------------
-    # Display UI
+    # GET
     # --------------------------------------------------------
 
     if request.method == "GET":
@@ -950,13 +832,15 @@ def index():
             "index.html"
         )
 
+
     # --------------------------------------------------------
-    # Get uploaded file
+    # Uploaded file
     # --------------------------------------------------------
 
     uploaded_file = request.files.get(
         "ooo_file"
     )
+
 
     if (
         not uploaded_file
@@ -972,8 +856,9 @@ def index():
             url_for("index")
         )
 
+
     # --------------------------------------------------------
-    # Check employee master
+    # Check master file
     # --------------------------------------------------------
 
     if not os.path.exists(
@@ -990,8 +875,9 @@ def index():
             url_for("index")
         )
 
+
     # --------------------------------------------------------
-    # Check report template
+    # Check template
     # --------------------------------------------------------
 
     if not os.path.exists(
@@ -1008,13 +894,15 @@ def index():
             url_for("index")
         )
 
+
     # --------------------------------------------------------
-    # Validate extension
+    # Check file type
     # --------------------------------------------------------
 
     filename = secure_filename(
         uploaded_file.filename
     )
+
 
     if not filename.lower().endswith(
         (
@@ -1033,6 +921,7 @@ def index():
             url_for("index")
         )
 
+
     # --------------------------------------------------------
     # Save uploaded file
     # --------------------------------------------------------
@@ -1042,12 +931,14 @@ def index():
         filename
     )
 
+
     uploaded_file.save(
         input_path
     )
 
+
     # --------------------------------------------------------
-    # Generate report
+    # Generate
     # --------------------------------------------------------
 
     try:
@@ -1056,15 +947,22 @@ def index():
             input_path
         )
 
+
         reports = generate_reports(
             records
         )
 
+
         return render_template(
+
             "index.html",
+
             success=True,
+
             reports=reports
+
         )
+
 
     except Exception as error:
 
@@ -1091,10 +989,12 @@ def download(filename):
         filename
     )
 
+
     file_path = os.path.join(
         OUTPUT_FOLDER,
         safe_filename
     )
+
 
     if not os.path.exists(
         file_path
@@ -1108,6 +1008,7 @@ def download(filename):
         return redirect(
             url_for("index")
         )
+
 
     return send_file(
         file_path,
@@ -1136,5 +1037,5 @@ if __name__ == "__main__":
     app.run(
         host="0.0.0.0",
         port=5000,
-        debug=False
+        debug=True
     )
