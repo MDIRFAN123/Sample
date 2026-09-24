@@ -17,13 +17,22 @@ from werkzeug.utils import secure_filename
 
 
 # ============================================================
-# CONFIGURATION
+# APPLICATION CONFIGURATION
 # ============================================================
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.path.dirname(
+    os.path.abspath(__file__)
+)
 
-UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
-OUTPUT_FOLDER = os.path.join(BASE_DIR, "output")
+UPLOAD_FOLDER = os.path.join(
+    BASE_DIR,
+    "uploads"
+)
+
+OUTPUT_FOLDER = os.path.join(
+    BASE_DIR,
+    "output"
+)
 
 EMPLOYEE_MASTER_FILE = os.path.join(
     BASE_DIR,
@@ -35,45 +44,60 @@ REPORT_TEMPLATE_FILE = os.path.join(
     "ORB_OOO_Schedule.xlsx"
 )
 
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+
+os.makedirs(
+    UPLOAD_FOLDER,
+    exist_ok=True
+)
+
+os.makedirs(
+    OUTPUT_FOLDER,
+    exist_ok=True
+)
 
 
 app = Flask(__name__)
 
 app.secret_key = "orb-ooo-schedule"
 
-app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024
+app.config[
+    "MAX_CONTENT_LENGTH"
+] = 50 * 1024 * 1024
 
 
 # ============================================================
-# TEMPLATE STRUCTURE
+# EXCEL TEMPLATE LAYOUT
 # ============================================================
 
-# Based on your actual Excel template:
+# Latest template:
 #
-#        C       D       E       F       G
-#        Mon     Tue     Wed     Thu     Fri
+#        B          C          D          E          F
+#        Monday     Tuesday    Wednesday  Thursday   Friday
 #
-# Row 2 = Date
-# Row 3 = Online
-# Row 4 = Out of Office
+# Row 1 = Day
+# Row 2 = Online
+# Row 3 = Out of Office
+#
+# A2 = Online
+# A3 = Out of Office
+#
+# ============================================================
 
 DAY_COLUMNS = {
-    0: "C",   # Monday
-    1: "D",   # Tuesday
-    2: "E",   # Wednesday
-    3: "F",   # Thursday
-    4: "G"    # Friday
+    0: "B",       # Monday
+    1: "C",       # Tuesday
+    2: "D",       # Wednesday
+    3: "E",       # Thursday
+    4: "F"        # Friday
 }
 
-DATE_ROW = 2
-ONLINE_ROW = 3
-OOO_ROW = 4
+ONLINE_ROW = 2
+
+OOO_ROW = 3
 
 
 # ============================================================
-# NORMALIZE TEXT
+# TEXT NORMALIZATION
 # ============================================================
 
 def normalize(value):
@@ -82,12 +106,15 @@ def normalize(value):
         return ""
 
     return " ".join(
-        str(value).strip().lower().split()
+        str(value)
+        .strip()
+        .lower()
+        .split()
     )
 
 
 # ============================================================
-# PARSE DATE
+# DATE PARSER
 # ============================================================
 
 def parse_date(value):
@@ -97,13 +124,23 @@ def parse_date(value):
             "Date cannot be empty."
         )
 
-    if isinstance(value, datetime):
+    # Excel datetime
+    if isinstance(
+        value,
+        datetime
+    ):
         return value.date()
 
-    if isinstance(value, date):
+    # Excel date
+    if isinstance(
+        value,
+        date
+    ):
         return value
 
-    text = str(value).strip()
+    text = str(
+        value
+    ).strip()
 
     formats = [
         "%m/%d/%Y",
@@ -126,10 +163,13 @@ def parse_date(value):
                 fmt
             )
 
-            # If year was not supplied
+            # If year is not provided,
             # use current year.
 
-            if "%Y" not in fmt and "%y" not in fmt:
+            if (
+                "%Y" not in fmt
+                and "%y" not in fmt
+            ):
 
                 result = result.replace(
                     year=date.today().year
@@ -138,16 +178,17 @@ def parse_date(value):
             return result.date()
 
         except ValueError:
+
             continue
 
     raise ValueError(
-        f"Invalid date: {value}. "
-        f"Please use MM/DD/YYYY."
+        f"Invalid date '{value}'. "
+        "Please use MM/DD/YYYY."
     )
 
 
 # ============================================================
-# GET WEEK
+# WEEK HELPERS
 # ============================================================
 
 def get_monday(input_date):
@@ -184,21 +225,28 @@ def read_employee_master():
         data_only=True
     )
 
-    if "Employee Master" in wb.sheetnames:
+    if (
+        "Employee Master"
+        in wb.sheetnames
+    ):
 
-        ws = wb["Employee Master"]
+        ws = wb[
+            "Employee Master"
+        ]
 
     else:
 
         ws = wb.active
 
 
+    name_col = None
+
+    code_col = None
+
+
     # --------------------------------------------------------
     # Find columns
     # --------------------------------------------------------
-
-    name_col = None
-    code_col = None
 
     for col in range(
         1,
@@ -206,7 +254,10 @@ def read_employee_master():
     ):
 
         header = normalize(
-            ws.cell(1, col).value
+            ws.cell(
+                1,
+                col
+            ).value
         )
 
         if header in (
@@ -230,6 +281,7 @@ def read_employee_master():
             "Employee Master must contain "
             "'Employee Name'."
         )
+
 
     if code_col is None:
 
@@ -261,19 +313,27 @@ def read_employee_master():
         ).value
 
 
-        if not name and not code:
+        if (
+            name is None
+            and code is None
+        ):
 
             continue
 
 
-        if not name or not code:
+        if (
+            name is None
+            or code is None
+        ):
 
             continue
 
 
         employee_map[
             normalize(name)
-        ] = str(code).strip()
+        ] = str(
+            code
+        ).strip()
 
 
     if not employee_map:
@@ -288,10 +348,19 @@ def read_employee_master():
 
 
 # ============================================================
-# READ INPUT FILE
+# READ INPUT EXCEL
+#
+# Required columns:
+#
+# Date
+# Status
+# Employee Name
+#
 # ============================================================
 
-def read_input_file(file_path):
+def read_input_file(
+    file_path
+):
 
     wb = load_workbook(
         file_path,
@@ -301,14 +370,16 @@ def read_input_file(file_path):
     ws = wb.active
 
 
-    # --------------------------------------------------------
-    # Find input columns
-    # --------------------------------------------------------
-
     date_col = None
+
     status_col = None
+
     employee_col = None
 
+
+    # --------------------------------------------------------
+    # Find headers
+    # --------------------------------------------------------
 
     for col in range(
         1,
@@ -316,16 +387,22 @@ def read_input_file(file_path):
     ):
 
         header = normalize(
-            ws.cell(1, col).value
+            ws.cell(
+                1,
+                col
+            ).value
         )
+
 
         if header == "date":
 
             date_col = col
 
+
         elif header == "status":
 
             status_col = col
+
 
         elif header in (
             "employee name",
@@ -339,21 +416,30 @@ def read_input_file(file_path):
 
 
     if date_col is None:
-        missing.append("Date")
+
+        missing.append(
+            "Date"
+        )
 
 
     if status_col is None:
-        missing.append("Status")
+
+        missing.append(
+            "Status"
+        )
 
 
     if employee_col is None:
-        missing.append("Employee Name")
+
+        missing.append(
+            "Employee Name"
+        )
 
 
     if missing:
 
         raise ValueError(
-            "Missing columns: "
+            "Input Excel is missing: "
             + ", ".join(missing)
         )
 
@@ -362,7 +448,7 @@ def read_input_file(file_path):
 
 
     # --------------------------------------------------------
-    # Read rows
+    # Read data
     # --------------------------------------------------------
 
     for row in range(
@@ -386,7 +472,7 @@ def read_input_file(file_path):
         ).value
 
 
-        # Ignore blank rows.
+        # Ignore completely blank rows
 
         if (
             date_value is None
@@ -404,8 +490,9 @@ def read_input_file(file_path):
         ):
 
             raise ValueError(
-                f"Row {row}: Date, Status "
-                f"and Employee Name are required."
+                f"Row {row}: "
+                "Date, Status and "
+                "Employee Name are required."
             )
 
 
@@ -414,7 +501,9 @@ def read_input_file(file_path):
         )
 
 
-        # We only expect OOO records.
+        # ----------------------------------------------------
+        # Only OOO records are required
+        # ----------------------------------------------------
 
         if status not in (
             "ooo",
@@ -423,7 +512,7 @@ def read_input_file(file_path):
 
             raise ValueError(
                 f"Row {row}: Status must be "
-                f"'OOO' or 'Out of Office'."
+                "'OOO' or 'Out of Office'."
             )
 
 
@@ -443,7 +532,8 @@ def read_input_file(file_path):
     if not records:
 
         raise ValueError(
-            "No OOO records found."
+            "No OOO records found "
+            "in the uploaded file."
         )
 
 
@@ -451,28 +541,62 @@ def read_input_file(file_path):
 
 
 # ============================================================
+# WRITE CELL WHILE PRESERVING FORMAT
+# ============================================================
+
+def write_cell(
+    ws,
+    cell_address,
+    value,
+    red=False
+):
+
+    cell = ws[
+        cell_address
+    ]
+
+
+    cell.value = value
+
+
+    # --------------------------------------------------------
+    # Preserve existing font
+    # --------------------------------------------------------
+
+    if red:
+
+        new_font = copy(
+            cell.font
+        )
+
+        new_font.color = "C00000"
+
+        new_font.bold = True
+
+        cell.font = new_font
+
+
+# ============================================================
 # GENERATE ONE WEEK
 # ============================================================
 
 def generate_week_report(
-    all_records,
+    records,
     monday
 ):
 
     # --------------------------------------------------------
-    # Read employee master
+    # Read master
     # --------------------------------------------------------
 
-    employee_map = read_employee_master()
+    employee_map = (
+        read_employee_master()
+    )
 
 
-    # Example:
-    #
-    # Velina  -> VR
-    # Cristen -> CR
-    # Tracy   -> TP
-    # Shakima -> HB
-    #
+    # --------------------------------------------------------
+    # Complete employee list
+    # --------------------------------------------------------
 
     all_employee_codes = list(
         employee_map.values()
@@ -499,12 +623,17 @@ def generate_week_report(
 
 
     # --------------------------------------------------------
-    # Select worksheet
+    # Use correct sheet
     # --------------------------------------------------------
 
-    if "Weekly Schedule" in wb.sheetnames:
+    if (
+        "Weekly Schedule"
+        in wb.sheetnames
+    ):
 
-        ws = wb["Weekly Schedule"]
+        ws = wb[
+            "Weekly Schedule"
+        ]
 
     else:
 
@@ -512,37 +641,7 @@ def generate_week_report(
 
 
     # --------------------------------------------------------
-    # Update dates
-    # --------------------------------------------------------
-
-    for day_number in range(5):
-
-        current_date = (
-            monday
-            + timedelta(
-                days=day_number
-            )
-        )
-
-        column = DAY_COLUMNS[
-            day_number
-        ]
-
-
-        # Example:
-        #
-        # C2 = 9/28
-        # D2 = 9/29
-        # etc.
-
-        ws[f"{column}{DATE_ROW}"] = (
-            f"{current_date.month}/"
-            f"{current_date.day}"
-        )
-
-
-    # --------------------------------------------------------
-    # Get records for this week
+    # Determine Friday
     # --------------------------------------------------------
 
     friday = get_friday(
@@ -550,46 +649,49 @@ def generate_week_report(
     )
 
 
-    week_records = [
-
-        record
-
-        for record in all_records
-
-        if (
-            monday
-            <= record["date"]
-            <= friday
-        )
-
-    ]
-
-
-    # --------------------------------------------------------
-    # Build OOO mapping
-    #
-    # Example:
-    #
-    # Thursday -> ["VR", "CR"]
-    #
-    # --------------------------------------------------------
+    # ========================================================
+    # BUILD OOO MAP
+    # ========================================================
 
     ooo_by_date = {}
 
 
-    for record in week_records:
+    for record in records:
+
+        record_date = record[
+            "date"
+        ]
+
+
+        # Only this week
+
+        if not (
+            monday
+            <= record_date
+            <= friday
+        ):
+
+            continue
+
 
         employee_name = normalize(
-            record["employee"]
+            record[
+                "employee"
+            ]
         )
 
+
+        # ----------------------------------------------------
+        # Validate employee
+        # ----------------------------------------------------
 
         if employee_name not in employee_map:
 
             raise ValueError(
-                f"Employee '{record['employee']}' "
-                f"is not present in "
-                f"ORB_Employee_Master.xlsx."
+                f"Employee "
+                f"'{record['employee']}' "
+                "is not present in "
+                "ORB_Employee_Master.xlsx."
             )
 
 
@@ -598,31 +700,26 @@ def generate_week_report(
         ]
 
 
-        current_date = record[
-            "date"
-        ]
-
-
-        if current_date not in ooo_by_date:
+        if record_date not in ooo_by_date:
 
             ooo_by_date[
-                current_date
+                record_date
             ] = []
 
 
         if employee_code not in ooo_by_date[
-            current_date
+            record_date
         ]:
 
             ooo_by_date[
-                current_date
+                record_date
             ].append(
                 employee_code
             )
 
 
     # ========================================================
-    # PROCESS MONDAY-FRIDAY
+    # MONDAY - FRIDAY
     # ========================================================
 
     for day_number in range(5):
@@ -641,7 +738,7 @@ def generate_week_report(
 
 
         # ----------------------------------------------------
-        # Employees OOO on this day
+        # OOO employees for this date
         # ----------------------------------------------------
 
         ooo_codes = ooo_by_date.get(
@@ -651,9 +748,9 @@ def generate_week_report(
 
 
         # ----------------------------------------------------
-        # ONLINE
+        # ONLINE EMPLOYEES
         #
-        # Everyone starts as Online.
+        # Start with everyone.
         #
         # Remove OOO employees.
         # ----------------------------------------------------
@@ -662,60 +759,63 @@ def generate_week_report(
 
             code
 
-            for code in all_employee_codes
+            for code
+            in all_employee_codes
 
-            if code not in ooo_codes
+            if code
+            not in ooo_codes
 
         ]
 
 
         # ----------------------------------------------------
-        # Write ONLINE
-        #
-        # C3 / D3 / E3 / F3 / G3
+        # Convert to display text
         # ----------------------------------------------------
 
-        online_cell = ws[
-            f"{column}{ONLINE_ROW}"
-        ]
-
-
-        online_cell.value = "/".join(
+        online_text = "/".join(
             online_codes
         )
 
 
-        # ----------------------------------------------------
-        # Write OUT OF OFFICE
-        #
-        # C4 / D4 / E4 / F4 / G4
-        # ----------------------------------------------------
-
-        ooo_cell = ws[
-            f"{column}{OOO_ROW}"
-        ]
-
-
-        ooo_cell.value = "/".join(
+        ooo_text = "/".join(
             ooo_codes
         )
 
 
         # ----------------------------------------------------
-        # Make OOO red
+        # WRITE ONLINE
+        #
+        # Monday    = B2
+        # Tuesday   = C2
+        # Wednesday = D2
+        # Thursday  = E2
+        # Friday    = F2
         # ----------------------------------------------------
 
-        if ooo_codes:
+        write_cell(
+            ws,
+            f"{column}{ONLINE_ROW}",
+            online_text,
+            red=False
+        )
 
-            new_font = copy(
-                ooo_cell.font
-            )
 
-            new_font.color = "C00000"
+        # ----------------------------------------------------
+        # WRITE OOO
+        #
+        # Monday    = B3
+        # Tuesday   = C3
+        # Wednesday = D3
+        # Thursday  = E3
+        # Friday    = F3
+        # ----------------------------------------------------
 
-            new_font.bold = True
-
-            ooo_cell.font = new_font
+        write_cell(
+            ws,
+            f"{column}{OOO_ROW}",
+            ooo_text,
+            red=bool(ooo_codes)
+        )
 
 
     # ========================================================
@@ -724,9 +824,13 @@ def generate_week_report(
 
     filename = (
         "ORB_OOO_Schedule_"
-        + monday.strftime("%Y%m%d")
+        + monday.strftime(
+            "%Y%m%d"
+        )
         + "_"
-        + friday.strftime("%Y%m%d")
+        + friday.strftime(
+            "%Y%m%d"
+        )
         + ".xlsx"
     )
 
@@ -743,32 +847,27 @@ def generate_week_report(
 
 
     return {
-
         "filename": filename,
-
         "path": output_path,
-
         "monday": monday,
-
-        "friday": friday,
-
-        "records": week_records
-
+        "friday": friday
     }
 
 
 # ============================================================
-# GENERATE ALL WEEKS
+# GENERATE REPORTS
 # ============================================================
 
-def generate_reports(records):
-
-    weeks = {}
-
+def generate_reports(
+    records
+):
 
     # --------------------------------------------------------
-    # Group dates into Monday-Friday weeks
+    # Find all weeks
     # --------------------------------------------------------
+
+    weeks = set()
+
 
     for record in records:
 
@@ -776,14 +875,8 @@ def generate_reports(records):
             record["date"]
         )
 
-
-        if monday not in weeks:
-
-            weeks[monday] = []
-
-
-        weeks[monday].append(
-            record
+        weeks.add(
+            monday
         )
 
 
@@ -791,11 +884,11 @@ def generate_reports(records):
 
 
     # --------------------------------------------------------
-    # Generate each week
+    # Generate every required week
     # --------------------------------------------------------
 
     for monday in sorted(
-        weeks.keys()
+        weeks
     ):
 
         report = generate_week_report(
@@ -813,17 +906,20 @@ def generate_reports(records):
 
 
 # ============================================================
-# HOME
+# HOME / UPLOAD
 # ============================================================
 
 @app.route(
     "/",
-    methods=["GET", "POST"]
+    methods=[
+        "GET",
+        "POST"
+    ]
 )
 def index():
 
     # --------------------------------------------------------
-    # GET
+    # Display page
     # --------------------------------------------------------
 
     if request.method == "GET":
@@ -834,7 +930,7 @@ def index():
 
 
     # --------------------------------------------------------
-    # Uploaded file
+    # Get uploaded file
     # --------------------------------------------------------
 
     uploaded_file = request.files.get(
@@ -858,7 +954,7 @@ def index():
 
 
     # --------------------------------------------------------
-    # Check master file
+    # Check master
     # --------------------------------------------------------
 
     if not os.path.exists(
@@ -896,7 +992,7 @@ def index():
 
 
     # --------------------------------------------------------
-    # Check file type
+    # Validate extension
     # --------------------------------------------------------
 
     filename = secure_filename(
@@ -923,7 +1019,7 @@ def index():
 
 
     # --------------------------------------------------------
-    # Save uploaded file
+    # Save input
     # --------------------------------------------------------
 
     input_path = os.path.join(
@@ -937,9 +1033,9 @@ def index():
     )
 
 
-    # --------------------------------------------------------
-    # Generate
-    # --------------------------------------------------------
+    # ========================================================
+    # AUTOMATIC GENERATION
+    # ========================================================
 
     try:
 
@@ -954,13 +1050,9 @@ def index():
 
 
         return render_template(
-
             "index.html",
-
             success=True,
-
             reports=reports
-
         )
 
 
@@ -971,28 +1063,31 @@ def index():
             "error"
         )
 
+
         return redirect(
             url_for("index")
         )
 
 
 # ============================================================
-# DOWNLOAD
+# DOWNLOAD REPORT
 # ============================================================
 
 @app.route(
     "/download/<filename>"
 )
-def download(filename):
+def download(
+    filename
+):
 
-    safe_filename = os.path.basename(
+    filename = os.path.basename(
         filename
     )
 
 
     file_path = os.path.join(
         OUTPUT_FOLDER,
-        safe_filename
+        filename
     )
 
 
@@ -1020,7 +1115,9 @@ def download(filename):
 # HEALTH CHECK
 # ============================================================
 
-@app.route("/health")
+@app.route(
+    "/health"
+)
 def health():
 
     return {
@@ -1029,7 +1126,7 @@ def health():
 
 
 # ============================================================
-# START APPLICATION
+# START SERVER
 # ============================================================
 
 if __name__ == "__main__":
