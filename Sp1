@@ -1,0 +1,45 @@
+Slide 1: Workbook Validation Tool
+
+Hi, Jeff. Hi, everyone.
+
+Let’s start with the problem we are trying to solve.
+
+Currently, workbook validation involves several manual steps, such as getting reference data from Workfront, checking workbooks against team-specific rules, and reviewing the results. This takes time, and each team follows its own process.
+
+It also takes time for new team members to learn the complete process and understand the rules.
+
+To address these challenges, we have developed the Workbook Validation Tool, a common platform for COPS, MQA, and Channel Marketing that uses Generative AI to assist with workbook validation.
+
+The tool has four main features.
+
+First, Workfront data retrieval: It gets the required reference data based on each team’s needs.
+
+Second, automatic workbook download: It downloads the required workbook from Workfront, which the user then uploads to the tool for validation.
+
+Third, team-specific checks: It checks each workbook against the relevant team’s rules.
+
+Fourth, data protection: It automatically masks PII data before the AI reviews the workbook.
+
+Coming to the expected business impact, we aim to support around 150 users across the three teams and save approximately 7,000 hours per year across MQA and Channel Marketing. For COPS, we expect to reduce annual validation time by around 50%.
+
+Slide 2: Project Roadmap and Key Milestones
+
+Moving to our progress and next steps, we have five key stages.
+
+Step 1: Foundation — Complete. We have set up the common UI, connected the required systems, and created the initial prompts.
+
+Step 2: Prompt Enhancement — In Progress. We are updating the prompts to meet each team’s requirements.
+
+Step 3: Testing — In Progress. We are testing the tool with the teams and fixing issues as they arise.
+
+Step 4: Feedback and Improvements — Planned. We will gather feedback from all three teams and make the necessary changes.
+
+Step 5: Production — Planned. We are targeting the launch by the end of November, subject to successful testing and the required approvals.
+
+Looking at our milestones, we demonstrated the first version in August, completed MQA testing in September, and shared the tool with the wider COPS team.
+
+In October, we received the Channel Marketing requirements and started working on their UI and prompts.
+
+Our immediate priority is to complete the remaining development and testing activities and prepare the tool for production.
+
+Thank you.
